@@ -4,6 +4,8 @@
 
     import {onMount} from "svelte";
     import { getFirestore, collection, getDocs, query, where, limit } from 'firebase/firestore/lite';
+    import PocketBase from 'pocketbase';
+    import {fade} from 'svelte/transition';
 
     //Run every 0.5 seconds
     let currentTime = new Date();
@@ -33,24 +35,79 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    /**
+	 * @type {any[]}
+	 */
     let todaysflights = [];
 
 
-        const getFlights = async () => {
-            let q = query(collection(db, 'departures'), where('Planned', '>=', new Date().setHours(0,0,0,0)), where('Planned', '<=', new Date().setHours(23,59,59,999)),limit(20));
+        const getflightsfirestore = async () => {
+            let q = query(collection(db, 'departures'), where('Planned', '>=', new Date().setHours(0,0,0,0)), where('Planned', '<=', new Date().setHours(23,59,59,999)));
             getDocs(q).then((querySnapshot) => {
-                todaysflights = querySnapshot;
+                todaysflights = [];
+                querySnapshot.forEach((doc) => {
+                    let flight = doc.data();
+                    if(flight.planned){
+                        flight.planned = flight.planned.toDate();
+                    }
+                    
+                    flight.planned = flight.planned.toDate();
+                    todaysflights.push(doc.data());
+                    console.log(doc.data());
+                });
             })
                 .catch((error) => {
                     console.log('Error getting documents: ', error);
                 });
+                
+        }
+
+        const getflightpocketbase = () => {
+            const pb = new PocketBase('http://176.58.101.163:8080/');
+            let beginning = new Date();
+            beginning.setHours(0,0,0,0);
+            beginning = new Date(Date.UTC(beginning.getFullYear(), beginning.getMonth(), beginning.getDate(), beginning.getHours(), beginning.getMinutes(), beginning.getSeconds(), beginning.getMilliseconds()));
+            //Subtract 1 day
+            beginning.setDate(beginning.getDate());
+
+            let ending = new Date();
+            ending.setHours(23,59,59,999);
+            ending.setDate(ending.getDate() +1);
+
+            ending = new Date(Date.UTC(ending.getFullYear(), ending.getMonth(), ending.getDate(), ending.getHours(), ending.getMinutes(), ending.getSeconds(), ending.getMilliseconds()));
+            console.log('planned = ' + '"' + beginning.toISOString() + '"' + ' && ' + 'planned = ' + '"' + ending.toISOString() + '"');
+            const resultlist = pb.collection('departures').getList(1,1000, {
+                filter: 'planned >= ' + '"' + beginning.toISOString() + '"' + ' && ' + 'planned <= ' + '"' + ending.toISOString() + '"'
+                      
+                    
+                }
+            );
+            resultlist.then((result) => {
+                todaysflights = [];
+                result.items.forEach((doc) => {
+                    doc.planned = new Date(doc.planned);
+                    if(doc.actual)
+                        doc.actual = new Date(doc.actual);
+                    if(doc.estimated)
+                        doc.estimated = new Date(doc.estimated);
+                    todaysflights.push(doc);
+                    
+                });
+            })
+                .catch((error) => {
+                    console.log('Error getting documents: ', error);
+                });
+
+                console.table(todaysflights);
         }
 
         onMount(() => {
-            getFlights();
+            getflightpocketbase();
         })
 
-        setInterval(getFlights, 60000);
+        
+
+        
 
 
 
@@ -60,26 +117,37 @@
 
 </script>
 
+<div transition:fade id="titlecontainer">
+    <h1 id="title">
+        Departures Ilulissat <br/>{currentTime.toLocaleTimeString([],{hour12:false, hour: '2-digit', minute:'2-digit', second:'2-digit'})}
+    </h1>
+</div>
 
-<h1 id="title">
-    Departures Ilulissat <br/>{currentTime.toLocaleTimeString([],{hour12:false, hour: '2-digit', minute:'2-digit', second:'2-digit'})}
-</h1>
 <div class="cardContainer">
 {#each todaysflights as flight}
 
-        <span class="card">
-            <h1>{flight.Rute}</h1>
-            <p>Departure: {flight.DepartureAirport}</p>
-            <p>Planned: {flight.Planned.getHours()}:{flight.Planned.getMinutes()}</p>
-            <p>Destination: {flight.ArrivalAirport}</p>
-            <p>Bus Departure: {flight.Planned.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit',hour12:false})}</p>
-            {#if flight.Actual}
-                <p>Actual: {flight.Actual}</p>
+        <div class="card">
+            {#if flight.status.en}
+            <div class={flight.status.en == 'cancelled' ? 'cancelled' : 'delayed'}></div>
             {/if}
-            {#if flight.Estimated}
-                <p>Estimated: {flight.Estimated}</p>
+            <h1>{flight.rute}</h1>
+            <p>Departure: {flight.departureairport}</p>
+            {#if flight.estimated}
+                <p>Estimated: {flight.estimated.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</p>
+                
+                
+            
+            {:else}
+                <p>Planned: {flight.planned.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</p>
             {/if}
-        </span>
+
+            
+            <p>Destination: {flight.arrivalairport}</p>
+            <p>Bus Departure: {flight.planned.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit',hour12:false})}</p>
+            
+            
+            
+        </div>
 
 
 
@@ -95,40 +163,85 @@
         text-align: center;
         font-family: 'Arvo', serif;
     }
-    .cardContainer > *{
-        min-width: 300px;
-        margin: 0;
+
+    #titlecontainer{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 4vh;
+        width: 100vw;
+        
+    }
+
+    .cancelled{
+        /*This will sit on the top right corner of the parent div*/
+        position: relative;
+        align-self: flex-end;
+        top: 0;
+        right: 0;
+        /*This will make the div a circle*/
+        width: 1em;
+        height: 1em;
+        border-radius: 50%;
+        /*This will make the div red*/
+        background-color: red;
+        /*The following will make the div overlap the margins of the siblings*/
+        margin: -0.5em;
+
+
 
 
     }
 
+    .delayed{
+        /*This will sit on the top right corner of the parent div*/
+        position: relative;
+        align-self: flex-end;
+        top: 0;
+        right: 0;
+        /*This will make the div a circle*/
+        width: 1em;
+        height: 1em;
+        border-radius: 50%;
+        /*This will make the div red*/
+        background-color: yellow;
+        /*The following will make the div overlap the margins of the siblings*/
+        margin: -0.5em;
+        font-size: xx-small;
+    }
+    
+
     .cardContainer{
-        min-height: 80vh;
-        min-width: 80vw;
+        min-height: 90vh;
+        min-width: 100vw;
         align-items: center;
         display: flex;
         flex-wrap: wrap;
-        justify-content: center;
+        justify-content: space-around;
     }
     .card{
         /*shadow effect*/
-box-shadow: 0 16px 8px 0 rgba(0,0,0,0.2);
+        box-shadow: 0 16px 8px 0 rgba(0,0,0,0.2);
         background: url("https://t3.ftcdn.net/jpg/04/95/22/44/360_F_495224491_wZ1fdpUEJcdZac332hiPiU20C2Z0a8Ak.jpg");
-        background-size: cover;
+        background-size: 100% 100%;
         display: flex;
         flex-direction: column;
-        justify-content: space-evenly;
-        padding: 1.5rem;
-
-        margin: 1rem;
+        justify-content: space-around;
+        margin: 1em;
+        height: clamp(20rem, 20vw, 20rem);
+        width: clamp(20rem, 20vw, 20rem);
         border-radius: 10px;
+    }
+    p{
+        margin-right: 1em;
+        margin-left: 1em;
     }
 
     .card > *{
-        margin: 0.2rem;
+        margin: 0.5em;
         text-align: center;
-        font-size: 1vh;
-        color: black;
+        font-size: 1.5em;
+        color: chocolate;
         font-family: 'Arvo', serif;
     }
 
