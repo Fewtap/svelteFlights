@@ -12,7 +12,7 @@
 	let rooms: any = [];
 	let totalpeopele: number = 0;
 	let roomnumberinput: any = null;
-	const pb = new PocketBase('http://176.58.101.163:8080');
+	const pb = new PocketBase('http://176.58.101.163:433');
 
 	//pb.autoCancellation(false);
 
