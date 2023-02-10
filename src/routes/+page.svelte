@@ -1,252 +1,249 @@
-<script>
-    // Import the functions you need from the SDKs you need
-    import { initializeApp } from "firebase/app";
+<script lang="ts">
+	// Import the functions you need from the SDKs you need
+	import PocketBase from 'pocketbase';
+	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 
-    import {onMount} from "svelte";
-    import { getFirestore, collection, getDocs, query, where, limit } from 'firebase/firestore/lite';
-    import PocketBase from 'pocketbase';
-    import {fade} from 'svelte/transition';
-
-    //Run every 0.5 seconds
-    let currentTime = new Date();
-    setInterval(() => {
-        currentTime = new Date();
-
-    }, 500);
-
-
-    // TODO: Add SDKs for Firebase products that you want to use
-    // https://firebase.google.com/docs/web/setup#available-libraries
-
-    // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-    const firebaseConfig = {
-        apiKey: "AIzaSyB3JAKSM2-JJNZsAJDVUi72uD0RbVSz35s",
-        authDomain: "flightinfo-578a5.firebaseapp.com",
-        databaseURL: "https://flightinfo-578a5-default-rtdb.firebaseio.com",
-        projectId: "flightinfo-578a5",
-        storageBucket: "flightinfo-578a5.appspot.com",
-        messagingSenderId: "56800720641",
-        appId: "1:56800720641:web:bd92eb39cfb63e7938cd00",
-        measurementId: "G-6MH9GRP45M"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    /**
+	/**
 	 * @type {any[]}
 	 */
-    let todaysflights = [];
+	let todaysflights: any = [];
+	let tomorrowsflights: any = [];
+	let tomorrowsdate: Date = new Date();
+	tomorrowsdate.setDate(tomorrowsdate.getDate() + 1);
 
+	const getflightpocketbase = async (date: Date) => {
+		let flights: any = [];
+		const pb = new PocketBase('http://176.58.101.163:8080');
 
-        const getflightsfirestore = async () => {
-            let q = query(collection(db, 'departures'), where('Planned', '>=', new Date().setHours(0,0,0,0)), where('Planned', '<=', new Date().setHours(23,59,59,999)));
-            getDocs(q).then((querySnapshot) => {
-                todaysflights = [];
-                querySnapshot.forEach((doc) => {
-                    let flight = doc.data();
-                    if(flight.planned){
-                        flight.planned = flight.planned.toDate();
-                    }
-                    
-                    flight.planned = flight.planned.toDate();
-                    todaysflights.push(doc.data());
-                    console.log(doc.data());
-                });
-            })
-                .catch((error) => {
-                    console.log('Error getting documents: ', error);
-                });
-                
-        }
+		date.setHours(0, 0, 0, 0);
+		let datestring = date.toISOString().slice(0, 10);
+		console.log(
+			'Getting flights for: ' + date.toLocaleDateString() + ' with datestring: ' + datestring
+		);
 
-        const getflightpocketbase = () => {
-            const pb = new PocketBase('http://176.58.101.163:8080/');
-            let beginning = new Date();
-            beginning.setHours(0,0,0,0);
-            beginning = new Date(Date.UTC(beginning.getFullYear(), beginning.getMonth(), beginning.getDate(), beginning.getHours(), beginning.getMinutes(), beginning.getSeconds(), beginning.getMilliseconds()));
-            //Subtract 1 day
-            beginning.setDate(beginning.getDate());
+		const result = await pb.collection('departures').getFullList(500, {
+			filter: 'planned ~ "' + datestring + '"'
+		});
 
-            let ending = new Date();
-            ending.setHours(23,59,59,999);
-            ending.setDate(ending.getDate() +1);
+		console.table(result);
 
-            ending = new Date(Date.UTC(ending.getFullYear(), ending.getMonth(), ending.getDate(), ending.getHours(), ending.getMinutes(), ending.getSeconds(), ending.getMilliseconds()));
-            console.log('planned = ' + '"' + beginning.toISOString() + '"' + ' && ' + 'planned = ' + '"' + ending.toISOString() + '"');
-            const resultlist = pb.collection('departures').getList(1,1000, {
-                filter: 'planned >= ' + '"' + beginning.toISOString() + '"' + ' && ' + 'planned <= ' + '"' + ending.toISOString() + '"'
-                      
-                    
-                }
-            );
-            resultlist.then((result) => {
-                todaysflights = [];
-                result.items.forEach((doc) => {
-                    doc.planned = new Date(doc.planned);
-                    if(doc.actual)
-                        doc.actual = new Date(doc.actual);
-                    if(doc.estimated)
-                        doc.estimated = new Date(doc.estimated);
-                    todaysflights.push(doc);
-                    
-                });
-            })
-                .catch((error) => {
-                    console.log('Error getting documents: ', error);
-                });
+		result.forEach((doc) => {
+			doc.planned = new Date(doc.planned);
+			if (doc.estimated) doc.estimated = new Date(doc.estimated);
 
-                console.table(todaysflights);
-        }
+			let busdeparture = new Date(doc.planned);
+			busdeparture.setMinutes(busdeparture.getMinutes() - 90);
+			doc.busdeparture = busdeparture;
 
-        onMount(() => {
-            getflightpocketbase();
-        })
+			flights.push(doc);
+		});
 
-        
+		flights = flights.sort((a: any, b: any) => {
+			return a.planned.getTime() - b.planned.getTime();
+		});
 
-        
+		//remove flights where the date is more than the planned and the estimated
 
+		return flights;
+	};
 
+	onMount(async () => {
+		todaysflights = await getflightpocketbase(new Date());
+		todaysflights = todaysflights.filter((flight: any) => {
+			return flight.planned > new Date() || flight.estimated > new Date();
+		});
 
+		console.log('Todays flights: ' + todaysflights.length);
+		let tomorrowsDate = new Date();
+		tomorrowsDate.setDate(tomorrowsDate.getDate() + 1);
 
+		tomorrowsflights = await getflightpocketbase(tomorrowsDate);
+	});
 
-
-
+	setInterval(() => {
+		todaysflights = todaysflights.filter((flight: any) => {
+			return flight.planned > new Date() || flight.estimated > new Date();
+		});
+		todaysflights = todaysflights;
+	}, 1000);
 </script>
 
-<div transition:fade id="titlecontainer">
-    <h1 id="title">
-        Departures Ilulissat <br/>{currentTime.toLocaleTimeString([],{hour12:false, hour: '2-digit', minute:'2-digit', second:'2-digit'})}
-    </h1>
-</div>
-
 <div class="cardContainer">
-{#each todaysflights as flight}
+	<h1 style="text-align: center;">
+		{new Date().toLocaleDateString('default', {
+			numberingSystem: 'latn',
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric'
+		})}
+	</h1>
 
-        <div class="card">
-            {#if flight.status.en}
-            <div class={flight.status.en == 'cancelled' ? 'cancelled' : 'delayed'}></div>
-            {/if}
-            <h1>{flight.rute}</h1>
-            <p>Departure: {flight.departureairport}</p>
-            {#if flight.estimated}
-                <p>Estimated: {flight.estimated.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</p>
-                
-                
-            
-            {:else}
-                <p>Planned: {flight.planned.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false})}</p>
-            {/if}
+	<div class="cards">
+		{#if todaysflights.length == 0}
+			<div class="noflights">
+				<h1>No more flights</h1>
+			</div>
+		{:else}
+			{#each todaysflights as flight}
+				{#if new Date() < flight.planned || new Date() < flight.estimated}
+					<!--{#if new Date() < flight.planned || new Date() < flight.estimated}-->
+					<!--Each card will contain information about the flight-->
+					<div transition:slide class="card">
+						<div class="cardheader">
+							<h2 class="cardtitle">{flight.rute}</h2>
+							<h2 class="cardtitle">
+								{#if flight.estimated}
+									Estimated:
+									{flight.estimated.toLocaleTimeString([], {
+										hour: '2-digit',
+										minute: '2-digit',
+										hour12: false
+									})}
+								{:else}
+									Planned:
+									{flight.planned.toLocaleTimeString([], {
+										hour: '2-digit',
+										minute: '2-digit',
+										hour12: false
+									})}
+								{/if}
+							</h2>
+						</div>
+						<div class="cardbody">
+							<p>Destination: {flight.arrivalairport}</p>
+							<p>
+								Bus departure {flight.busdeparture.toLocaleTimeString([], {
+									hour: '2-digit',
+									minute: '2-digit',
+									hour12: false
+								})}
+							</p>
+						</div>
+					</div>
+				{/if}
+			{/each}
+		{/if}
+	</div>
+	<div>
+		<h1 style="text-align: center;">
+			{tomorrowsdate.toLocaleDateString('default', {
+				numberingSystem: 'latn',
+				weekday: 'long',
+				month: 'long',
+				day: 'numeric'
+			})}
+		</h1>
+	</div>
 
-            
-            <p>Destination: {flight.arrivalairport}</p>
-            <p>Bus Departure: {flight.planned.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit',hour12:false})}</p>
-            
-            
-            
-        </div>
-
-
-
-{/each}
+	<div class="cards">
+		{#if tomorrowsflights.length == 0}
+			<p>No flights tomorrow</p>
+		{:else}
+			{#each tomorrowsflights as flight}
+				<!--{#if new Date() < flight.planned || new Date() < flight.estimated}-->
+				<!--Each card will contain information about the flight-->
+				<div class="card">
+					<div class="cardheader">
+						<h2 class="cardtitle">{flight.rute}</h2>
+						<h2 class="cardtitle">
+							{#if flight.estimated}
+								Estimated:
+								{flight.estimated.toLocaleTimeString([], {
+									hour: '2-digit',
+									minute: '2-digit',
+									hour12: false
+								})}
+							{:else}
+								Planned:
+								{flight.planned.toLocaleTimeString([], {
+									hour: '2-digit',
+									minute: '2-digit',
+									hour12: false
+								})}
+							{/if}
+						</h2>
+					</div>
+					<div class="cardbody">
+						<p>Destination: {flight.arrivalairport}</p>
+						<p>
+							Bus departure {flight.busdeparture.toLocaleTimeString([], {
+								hour: '2-digit',
+								minute: '2-digit',
+								hour12: false
+							})}
+						</p>
+					</div>
+				</div>
+				<!--{/if}-->
+			{/each}
+		{/if}
+	</div>
 </div>
 
 <style>
+	@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital@0;1&display=swap');
+	@import url('https://fonts.googleapis.com/css2?family=Arvo&family=Barlow+Condensed:ital@0;1&display=swap');
 
-    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital@0;1&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Arvo&family=Barlow+Condensed:ital@0;1&display=swap');
+	.noflights {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 100%;
+		width: 80%;
+		background: rgb(88, 144, 182);
+		border-radius: 20px;
+	}
 
-    #title{
-        text-align: center;
-        font-family: 'Arvo', serif;
-    }
+	.cardheader {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-around;
+		align-items: center;
+		max-height: 25%;
+		padding: 10px;
+	}
 
-    #titlecontainer{
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 4vh;
-        width: 100vw;
-        
-    }
+	.cardtitle {
+		font-size: 1em;
+	}
 
-    .cancelled{
-        /*This will sit on the top right corner of the parent div*/
-        position: relative;
-        align-self: flex-end;
-        top: 0;
-        right: 0;
-        /*This will make the div a circle*/
-        width: 1em;
-        height: 1em;
-        border-radius: 50%;
-        /*This will make the div red*/
-        background-color: red;
-        /*The following will make the div overlap the margins of the siblings*/
-        margin: -0.5em;
+	.cards {
+		width: 1080px;
+		align-items: center;
+		margin: auto;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-around;
+	}
+	.card {
+		/*shadow effect*/
+		box-shadow: 0 16px 8px 0 rgba(0, 0, 0, 0.2);
+		background: url('https://media.istockphoto.com/vectors/wavy-abstract-backgrounds-for-design-of-web-banners-packaging-posters-vector-id1211961939?b=1&k=20&m=1211961939&s=170667a&w=0&h=zAfk6widLaz3ZWrpUdxHi1ez_8_5aO2W2wA8fvhs9QE=');
+		background-size: 100% 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-around;
+		margin: 1em;
+		height: clamp(20rem, 20vw, 20rem);
+		width: clamp(20rem, 20vw, 20rem);
+		border-radius: 10px;
+	}
+	p {
+		margin-right: 1em;
+		margin-left: 1em;
+	}
 
+	.card > * {
+		margin: 0.5em;
+		text-align: center;
+		font-size: 1.5em;
+		color: chocolate;
+		font-family: 'Arvo', serif;
+	}
 
-
-
-    }
-
-    .delayed{
-        /*This will sit on the top right corner of the parent div*/
-        position: relative;
-        align-self: flex-end;
-        top: 0;
-        right: 0;
-        /*This will make the div a circle*/
-        width: 1em;
-        height: 1em;
-        border-radius: 50%;
-        /*This will make the div red*/
-        background-color: yellow;
-        /*The following will make the div overlap the margins of the siblings*/
-        margin: -0.5em;
-        font-size: xx-small;
-    }
-    
-
-    .cardContainer{
-        min-height: 90vh;
-        min-width: 100vw;
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-around;
-    }
-    .card{
-        /*shadow effect*/
-        box-shadow: 0 16px 8px 0 rgba(0,0,0,0.2);
-        background: url("https://t3.ftcdn.net/jpg/04/95/22/44/360_F_495224491_wZ1fdpUEJcdZac332hiPiU20C2Z0a8Ak.jpg");
-        background-size: 100% 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-around;
-        margin: 1em;
-        height: clamp(20rem, 20vw, 20rem);
-        width: clamp(20rem, 20vw, 20rem);
-        border-radius: 10px;
-    }
-    p{
-        margin-right: 1em;
-        margin-left: 1em;
-    }
-
-    .card > *{
-        margin: 0.5em;
-        text-align: center;
-        font-size: 1.5em;
-        color: chocolate;
-        font-family: 'Arvo', serif;
-    }
-
-    h1{
-        /*add an underline to the title*/
-        text-decoration: underline;
-    }
+	h1 {
+		/*add an underline to the title*/
+		text-decoration: underline;
+	}
 </style>

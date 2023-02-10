@@ -1,11 +1,419 @@
-<script>
+<script lang="ts">
+	import PocketBase from 'pocketbase';
+	import { onMount, onDestroy } from 'svelte';
+	import { identity, object_without_properties, select_value } from 'svelte/internal';
+	import { fade, fly, scale, slide, blur } from 'svelte/transition';
 
-    
-    
+	let roomsLoaded: boolean = true;
+	let selectedDate: Date = new Date();
+	let dataExists: boolean = true;
+	let roomnumber: string = 'Enter room number: ';
+	let amountPeople: number = 1;
+	let rooms: any = [];
+	let totalpeopele: number = 0;
+	let roomnumberinput: any = null;
+	const pb = new PocketBase('http://176.58.101.163:8080');
 
+	//pb.autoCancellation(false);
+
+	/**
+	 * @type {any[]}
+	 */
+	let flights: any[] = [];
+
+	const getflightpocketbase = async (_date: Date) => {
+		flights = [];
+
+		_date.setHours(0, 0, 0, 0);
+		let todayString = _date.toISOString().slice(0, 10);
+
+		const result = await pb.collection('departures').getFullList(500, {
+			filter: 'planned ~ "' + todayString + '"'
+		});
+
+		result.forEach((doc) => {
+			doc.planned = new Date(doc.planned);
+			if (doc.actual) doc.actual = new Date(doc.actual);
+			if (doc.estimated != '') {
+				doc.estimated = new Date(doc.estimated);
+				//make a new key for busdeparture which is 90 minutes before estimated
+				doc.busdeparture = new Date(doc.estimated.setMinutes(doc.estimated.getMinutes() - 90));
+			} else {
+				doc.busdeparture = new Date(doc.planned.setMinutes(doc.planned.getMinutes() - 90));
+			}
+			doc.selected = false;
+			doc.rooms = [];
+
+			flights.push(doc);
+		});
+
+		flights = flights.sort((a, b) => {
+			return a.planned.getTime() - b.planned.getTime();
+		});
+
+		if (flights.length > 0) flights[0].selected = true;
+
+		if (flights.length == 0) dataExists = false;
+		else dataExists = true;
+	};
+
+	let selectedFlight: any = null;
+	onMount(async () => {
+		await getflightpocketbase(selectedDate);
+		selectedFlight = flights[0];
+		subscribetodb();
+		getallRooms();
+	});
+
+	//TODO: fix this function
+	async function getallRooms() {
+		roomsLoaded = false;
+
+		for (let i = 0; i < flights.length; i++) {
+			let rooms = await getRooms(flights[i].flighthash);
+			rooms.forEach((room) => {
+				console.log(room.amount);
+			});
+			flights[i].rooms = rooms;
+
+			flights[i].rooms.forEach((room: { amount: number }) => {
+				if (flights[i].totalpeople == undefined) flights[i].totalpeople = 0;
+				if (room.amount == undefined) room.amount = 0;
+			});
+			console.log(flights[i].totalpeople);
+		}
+
+		roomsLoaded = true;
+	}
+
+	onDestroy(() => {
+		pb.collection('rooms').unsubscribe('*');
+	});
+
+	function subscribetodb() {
+		pb.collection('rooms').subscribe('*', async ({ action, record }) => {
+			if (action == 'create') {
+				selectedFlight.rooms.push(record);
+				selectedFlight.totalpeopele += record.amount;
+				selectedFlight.rooms = selectedFlight.rooms;
+			}
+		});
+	}
+
+	async function nextDay() {
+		selectedDate.setDate(selectedDate.getDate() + 1);
+		selectedDate = selectedDate;
+		await getflightpocketbase(selectedDate);
+		selectedFlight = flights[0];
+		//getallRooms();
+	}
+
+	async function prevDay() {
+		selectedDate.setDate(selectedDate.getDate() - 1);
+		selectedDate = selectedDate;
+		await getflightpocketbase(selectedDate);
+		selectedFlight = flights[0];
+		flights.forEach((flight) => {
+			flight.selected = false;
+		});
+		selectedFlight.selected = true;
+		//getallRooms();
+	}
+
+	function selectFlight(id: String) {
+		flights.forEach((flight) => {
+			if (flight.id == id) {
+				if (flight.selected) {
+					flight.selected = false;
+				} else {
+					flight.selected = true;
+					selectedFlight = flight;
+				}
+			} else flight.selected = false;
+		});
+
+		flights = flights;
+	}
+
+	async function getRooms(flighthash: String) {
+		totalpeopele = 0;
+		rooms = [];
+		let querystring = 'flighthash = "' + flighthash + '"';
+
+		const result = await pb.collection('rooms').getFullList(500, {
+			filter: querystring
+		});
+
+		return result;
+	}
+
+	function selecttext(e: MouseEvent) {
+		//select all text in input
+		(e.target as HTMLInputElement).select();
+	}
+
+	async function deleteRoom(idnumber: string) {
+		selectedFlight.rooms = selectedFlight.rooms.filter(
+			(room: { id: string }) => room.id != idnumber
+		);
+		await pb.collection('rooms').delete(idnumber);
+		rooms = rooms;
+	}
+
+	async function submit() {
+		if (roomnumber == '' || roomnumber == 'Enter room number: ') {
+			alert('Please enter a room number');
+			return;
+		}
+
+		await pb.collection('rooms').create({
+			flighthash: selectedFlight.flighthash,
+			roomnumber: roomnumber,
+			amount: amountPeople
+		});
+
+		console.log(selectedFlight.rooms);
+		roomnumber = 'Enter room number: ';
+		amountPeople = 1;
+		roomnumberinput.focus();
+	}
 </script>
 
-<div>
-    <h1>Rooms</h1>
-    
+<div class="panel">
+	<div class="controlscontainer">
+		<div class="buttons">
+			<button on:click={() => prevDay()}>Previous Day</button>
+			<h1>{selectedDate.toDateString()}</h1>
+			<button on:click={() => nextDay()}>Next Day</button>
+		</div>
+		<div class="inputcontainer">
+			<input
+				bind:this={roomnumberinput}
+				type="text"
+				bind:value={roomnumber}
+				on:click={(e) => selecttext(e)}
+				on:keydown={(e) => (e.key == 'Enter' ? submit() : '')}
+			/>
+			<input
+				type="number"
+				bind:value={amountPeople}
+				on:click={(e) => selecttext(e)}
+				on:keydown={(e) => (e.key == 'Enter' ? submit() : '')}
+			/>
+		</div>
+
+		{#if selectedFlight}
+			{#key selectedFlight.id}
+				<h2 in:slide={{ duration: 500, delay: 100 }}>{selectedFlight.rute}</h2>
+			{/key}
+			{#if !roomsLoaded}
+				<h1 transition:fade>Loading...</h1>
+			{:else if selectedFlight.rooms.length > 0}
+				<h3 in:slide={{ duration: 500, delay: 100 }}>
+					Total amount of people: {selectedFlight.totalpeopele}
+				</h3>
+
+				{#each selectedFlight.rooms as room}
+					<div
+						in:slide={{ duration: 200 }}
+						out:slide={{ delay: 0, duration: 100 }}
+						class="roomcard"
+					>
+						<div class="roomtext">
+							<h3>Roomnumber: {room.roomnumber} Amount: {room.amount}</h3>
+						</div>
+						<div class="roomdelete">
+							<button on:click={() => deleteRoom(room.id)}>X</button>
+						</div>
+					</div>
+				{/each}
+			{:else}
+				<h3 in:fade={{ delay: 1000 }}>No rooms</h3>
+			{/if}
+		{/if}
+	</div>
+	<div />
+	<div class="cardcontainer">
+		{#if dataExists}
+			{#each flights as flight (flight.flighthash)}
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<div
+					transition:fade
+					class={flight.selected ? 'selected card' : 'card'}
+					on:click={() => selectFlight(flight.id)}
+				>
+					<h2>{flight.rute}</h2>
+
+					{#if flight.totalpeopele > 0}
+						<h3 transition:fade>People: {flight.totalpeopele}</h3>
+					{/if}
+				</div>
+			{/each}
+		{:else}
+			<h1>No data</h1>
+		{/if}
+	</div>
 </div>
+
+<style>
+	.inputcontainer {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-evenly;
+		align-items: center;
+		width: 50%;
+	}
+
+	.inputcontainer input {
+		width: 100%;
+		height: 50%;
+		border-radius: 10px;
+		border: none;
+		margin: 10px 0;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+	}
+	.roomcard {
+		display: flex;
+		justify-content: space-evenly;
+		align-items: center;
+		width: 50%;
+		height: 50px;
+		background-color: #f5f5f5;
+		border-radius: 10px;
+		margin: 10px 0;
+		padding: 0 10px;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+	}
+
+	.roomtext {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 90%;
+		height: 100%;
+	}
+
+	.roomdelete {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 10%;
+		height: 100%;
+	}
+
+	.roomdelete button {
+		width: 100%;
+		height: 75%;
+		border: none;
+		background-color: #f5f5f5;
+		border-radius: 10px;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+	}
+
+	.roomdelete button:hover {
+		background-color: red;
+		transition: cubic-bezier(1, 0, 0, 1);
+	}
+
+	.buttons {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+	.panel {
+		display: flex;
+
+		justify-content: center;
+		align-items: center;
+		margin: 0 auto;
+		width: 100vw;
+		height: 100vh;
+		background-color: #f5f5f5;
+	}
+	.controlscontainer {
+		display: flex;
+		flex-direction: column;
+		justify-content: start;
+		align-items: center;
+		margin: 0 auto;
+		width: 50%;
+		height: 100%;
+	}
+
+	input {
+		width: 50%;
+		height: 50px;
+		font-size: 20px;
+		border-radius: 10px;
+		border: none;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+		padding: 20px;
+		cursor: pointer;
+		font-size: large;
+	}
+
+	.buttons > * {
+		margin: 100px 10px;
+	}
+
+	.buttons > button {
+		background-color: #fff;
+		border: none;
+		border-radius: 10px;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+		padding: 20px;
+		cursor: pointer;
+		font-size: large;
+	}
+
+	.buttons > button:hover {
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+		background-color: antiquewhite;
+	}
+
+	.cardcontainer {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		/*The cardcontainer will be centered*/
+		margin: 0 auto;
+		width: 50%;
+		height: 100%;
+	}
+
+	.card {
+		width: 300px;
+		height: 100px;
+		background-color: #fff;
+		border-radius: 10px;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+		margin: 10px;
+		padding: 10px;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+	}
+
+	.card:hover {
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+		background-color: antiquewhite;
+
+		transition: 0.2s;
+		transition-timing-function: ease-in-out;
+		/*The mouse cursor will change to a pointer when hovering over the card*/
+		cursor: pointer;
+	}
+
+	.card > * {
+		margin: 0;
+		padding: 0;
+		text-align: center;
+	}
+
+	.selected {
+		border: antiquewhite 10px solid;
+		/*there will be a radial splash effect when the card is selected*/
+	}
+</style>
