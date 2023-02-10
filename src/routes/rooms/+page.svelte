@@ -43,6 +43,7 @@
 			}
 			doc.selected = false;
 			doc.rooms = [];
+			doc.totalpeople = 0;
 
 			flights.push(doc);
 		});
@@ -55,6 +56,8 @@
 
 		if (flights.length == 0) dataExists = false;
 		else dataExists = true;
+
+		flights = flights;
 	};
 
 	let selectedFlight: any = null;
@@ -72,14 +75,10 @@
 		for (let i = 0; i < flights.length; i++) {
 			let rooms = await getRooms(flights[i].flighthash);
 			rooms.forEach((room) => {
-				console.log(room.amount);
+				flights[i].totalpeople += room.amount;
 			});
 			flights[i].rooms = rooms;
 
-			flights[i].rooms.forEach((room: { amount: number }) => {
-				if (flights[i].totalpeople == undefined) flights[i].totalpeople = 0;
-				if (room.amount == undefined) room.amount = 0;
-			});
 			console.log(flights[i].totalpeople);
 		}
 
@@ -94,8 +93,28 @@
 		pb.collection('rooms').subscribe('*', async ({ action, record }) => {
 			if (action == 'create') {
 				selectedFlight.rooms.push(record);
-				selectedFlight.totalpeopele += record.amount;
+				selectedFlight.totalpeople += record.amount;
 				selectedFlight.rooms = selectedFlight.rooms;
+				selectedFlight.rooms = selectedFlight.rooms;
+				flights.find((flight) => flight.id == selectedFlight.id).rooms = selectedFlight.rooms;
+				flights.find((flight) => flight.id == selectedFlight.id).totalpeople =
+					selectedFlight.totalpeople;
+
+				flights = flights;
+			} else if (action == 'delete') {
+				selectedFlight.rooms = selectedFlight.rooms.filter(
+					(room: { id: string }) => room.id != record.id
+				);
+				selectedFlight.totalpeople -= record.amount;
+				console.log('Total people:' + selectedFlight.totalpeople);
+				selectedFlight.rooms = selectedFlight.rooms;
+				flights.find((flight) => flight.id == selectedFlight.id).rooms = selectedFlight.rooms;
+				flights.find((flight) => flight.id == selectedFlight.id).totalpeople =
+					selectedFlight.totalpeople;
+				if (selectedFlight.rooms.length == 0)
+					await pb.collection('departures').update(selectedFlight.id, { hasrooms: false });
+
+				flights = flights;
 			}
 		});
 	}
@@ -105,7 +124,7 @@
 		selectedDate = selectedDate;
 		await getflightpocketbase(selectedDate);
 		selectedFlight = flights[0];
-		//getallRooms();
+		getallRooms();
 	}
 
 	async function prevDay() {
@@ -117,7 +136,7 @@
 			flight.selected = false;
 		});
 		selectedFlight.selected = true;
-		//getallRooms();
+		getallRooms();
 	}
 
 	function selectFlight(id: String) {
@@ -153,9 +172,6 @@
 	}
 
 	async function deleteRoom(idnumber: string) {
-		selectedFlight.rooms = selectedFlight.rooms.filter(
-			(room: { id: string }) => room.id != idnumber
-		);
 		await pb.collection('rooms').delete(idnumber);
 		rooms = rooms;
 	}
@@ -170,6 +186,10 @@
 			flighthash: selectedFlight.flighthash,
 			roomnumber: roomnumber,
 			amount: amountPeople
+		});
+
+		await pb.collection('departures').update(selectedFlight.id, {
+			hasrooms: true
 		});
 
 		console.log(selectedFlight.rooms);
@@ -209,9 +229,11 @@
 			{#if !roomsLoaded}
 				<h1 transition:fade>Loading...</h1>
 			{:else if selectedFlight.rooms.length > 0}
-				<h3 in:slide={{ duration: 500, delay: 100 }}>
-					Total amount of people: {selectedFlight.totalpeopele}
-				</h3>
+				{#key selectedFlight.totalpeople}
+					<h3 in:slide={{ duration: 500, delay: 100 }}>
+						Total amount of people: {selectedFlight.totalpeople}
+					</h3>
+				{/key}
 
 				{#each selectedFlight.rooms as room}
 					<div
@@ -244,9 +266,7 @@
 				>
 					<h2>{flight.rute}</h2>
 
-					{#if flight.totalpeopele > 0}
-						<h3 transition:fade>People: {flight.totalpeopele}</h3>
-					{/if}
+					<h3 transition:fade>People: {flight.totalpeople}</h3>
 				</div>
 			{/each}
 		{:else}
