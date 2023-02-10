@@ -14,7 +14,7 @@
 
 	const getflightpocketbase = async (date: Date) => {
 		let flights: any = [];
-		const pb = new PocketBase('http://176.58.101.163:8080');
+		const pb = new PocketBase('https://176.58.101.163:443');
 
 		date.setHours(0, 0, 0, 0);
 		let datestring = date.toISOString().slice(0, 10);
