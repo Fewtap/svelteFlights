@@ -12,7 +12,8 @@
 	let rooms: any = [];
 	let totalpeopele: number = 0;
 	let roomnumberinput: any = null;
-	const pb = new PocketBase('https://176.58.101.163:443');
+	let getdepartures: boolean = true;
+	const pb = new PocketBase('http://176.58.101.163:8080');
 
 	//pb.autoCancellation(false);
 
@@ -22,13 +23,17 @@
 	let flights: any[] = [];
 
 	const getflightpocketbase = async (_date: Date) => {
+		let collectionstring: string = '';
 		flights = [];
 
 		_date.setHours(0, 0, 0, 0);
-		let todayString = _date.toISOString().slice(0, 10);
+		let datestring = _date.toISOString().slice(0, 10);
 
-		const result = await pb.collection('departures').getFullList(500, {
-			filter: 'planned ~ "' + todayString + '"'
+		if (getdepartures) collectionstring = 'departures';
+		else collectionstring = 'arrivals';
+
+		const result = await pb.collection(collectionstring).getFullList(500, {
+			filter: 'planned ~ "' + datestring + '"'
 		});
 
 		result.forEach((doc) => {
@@ -265,7 +270,7 @@
 					on:click={() => selectFlight(flight.id)}
 				>
 					<h2>{flight.rute}</h2>
-
+					<h2>help</h2>
 					<h3 transition:fade>People: {flight.totalpeople}</h3>
 				</div>
 			{/each}
