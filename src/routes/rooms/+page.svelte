@@ -7,7 +7,7 @@
 	let roomsLoaded: boolean = true;
 	let selectedDate: Date = new Date();
 	let dataExists: boolean = true;
-	let roomnumber: string = 'Enter room number: ';
+	let roomnumber: string = '';
 	let amountPeople: number = 1;
 	let rooms: any = [];
 	let totalpeopele: number = 0;
@@ -116,19 +116,42 @@
 				flights.find((flight) => flight.id == selectedFlight.id).rooms = selectedFlight.rooms;
 				flights.find((flight) => flight.id == selectedFlight.id).totalpeople =
 					selectedFlight.totalpeople;
-				if (selectedFlight.rooms.length == 0)
-					await pb.collection('departures').update(selectedFlight.id, { hasrooms: false });
+				if (selectedFlight.rooms.length == 0) {
+					if (getdepartures) {
+						await pb.collection('departures').update(selectedFlight.id, { hasrooms: false });
+					} else {
+						await pb.collection('arrivals').update(selectedFlight.id, { hasrooms: false });
+					}
+				}
 
 				flights = flights;
 			}
 		});
+	}
+	async function togglegetdepartures() {
+		getdepartures = !getdepartures;
+
+		await getflightpocketbase(selectedDate);
+		if (flights.length > 0) selectedFlight = flights[0];
+		else return;
+		selectedFlight = flights[0];
+		flights.forEach((flight) => {
+			flight.selected = false;
+		});
+		selectedFlight.selected = true;
+		await getallRooms();
 	}
 
 	async function nextDay() {
 		selectedDate.setDate(selectedDate.getDate() + 1);
 		selectedDate = selectedDate;
 		await getflightpocketbase(selectedDate);
-		selectedFlight = flights[0];
+		if (flights.length > 0) selectedFlight = flights[0];
+		else return;
+		flights.forEach((flight) => {
+			flight.selected = false;
+		});
+		selectedFlight.selected = true;
 		getallRooms();
 	}
 
@@ -157,6 +180,9 @@
 		});
 
 		flights = flights;
+
+		roomnumberinput.focus();
+		roomnumberinput.value = '';
 	}
 
 	async function getRooms(flighthash: String) {
@@ -179,6 +205,28 @@
 	async function deleteRoom(idnumber: string) {
 		await pb.collection('rooms').delete(idnumber);
 		rooms = rooms;
+		fetch('http://176.58.101.163:5000/api/rooms', {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		}).then((response) => {
+			console.log(response);
+		});
+	}
+
+	async function printSheet() {
+		let neutraldate = new Date(selectedDate);
+		neutraldate.setHours(0, 0, 0, 0);
+		console.log(neutraldate.toISOString().split('T')[0]);
+		let query = 'date ~ "' + neutraldate.toISOString().split('T')[0] + '"';
+		console.log(query);
+		let record = await pb.collection('sheet').getFullList(1, {
+			filter: 'date ~ "' + neutraldate.toISOString().split('T')[0] + '"'
+		});
+
+		let downloadurl = pb.getFileUrl(record[0], record[0].excelfile);
+		window.open(downloadurl, 'Excel File');
 	}
 
 	async function submit() {
@@ -192,15 +240,29 @@
 			roomnumber: roomnumber,
 			amount: amountPeople
 		});
-
-		await pb.collection('departures').update(selectedFlight.id, {
-			hasrooms: true
-		});
+		if (getdepartures) {
+			await pb.collection('departures').update(selectedFlight.id, {
+				hasrooms: true
+			});
+		} else {
+			await pb.collection('arrivals').update(selectedFlight.id, {
+				hasrooms: true
+			});
+		}
 
 		console.log(selectedFlight.rooms);
-		roomnumber = 'Enter room number: ';
+		roomnumber = '';
 		amountPeople = 1;
+		roomnumberinput.value = '';
+		console.log('Element value: ' + roomnumberinput.value);
+		console.log('Roomnumber variable: ' + roomnumber);
 		roomnumberinput.focus();
+		fetch('http://176.58.101.163:5000/api/rooms', {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
 	}
 </script>
 
@@ -208,12 +270,24 @@
 	<div class="controlscontainer">
 		<div class="buttons">
 			<button on:click={() => prevDay()}>Previous Day</button>
+			{#if getdepartures}
+				<h2 in:fade={{ delay: 800 }}>Departures</h2>
+			{:else}
+				<h2 in:fade={{ delay: 800 }}>Arrivals</h2>
+			{/if}
 			<h1>{selectedDate.toDateString()}</h1>
 			<button on:click={() => nextDay()}>Next Day</button>
+			<button
+				on:click={() => {
+					togglegetdepartures();
+				}}>Switch</button
+			>
+			<button on:click={() => printSheet()}>Print Sheet</button>
 		</div>
 		<div class="inputcontainer">
 			<input
 				bind:this={roomnumberinput}
+				placeholder="Enter room number:"
 				type="text"
 				bind:value={roomnumber}
 				on:click={(e) => selecttext(e)}
@@ -259,7 +333,7 @@
 			{/if}
 		{/if}
 	</div>
-	<div />
+
 	<div class="cardcontainer">
 		{#if dataExists}
 			{#each flights as flight (flight.flighthash)}
@@ -270,7 +344,7 @@
 					on:click={() => selectFlight(flight.id)}
 				>
 					<h2>{flight.rute}</h2>
-					<h2>help</h2>
+					<h2>Departure: {flight.departureairport}</h2>
 					<h3 transition:fade>People: {flight.totalpeople}</h3>
 				</div>
 			{/each}
@@ -333,6 +407,10 @@
 		background-color: #f5f5f5;
 		border-radius: 10px;
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+	}
+
+	input:hover {
+		cursor: text;
 	}
 
 	.roomdelete button:hover {
