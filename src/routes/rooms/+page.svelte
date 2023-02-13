@@ -205,12 +205,15 @@
 	async function deleteRoom(idnumber: string) {
 		await pb.collection('rooms').delete(idnumber);
 		rooms = rooms;
-		fetch('http://176.58.101.163:5000/api/rooms', {
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json'
+		fetch(
+			'http://176.58.101.163:5000/api/rooms' + '?date=' + selectedDate.toISOString().split('T')[0],
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json'
+				}
 			}
-		}).then((response) => {
+		).then((response) => {
 			console.log(response);
 		});
 	}
@@ -257,12 +260,17 @@
 		console.log('Element value: ' + roomnumberinput.value);
 		console.log('Roomnumber variable: ' + roomnumber);
 		roomnumberinput.focus();
-		fetch('http://176.58.101.163:5000/api/rooms', {
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json'
+		//Add a parameter to the url containing the selected date
+
+		fetch(
+			'http://176.58.101.163:5000/api/rooms' + '?date=' + selectedDate.toISOString().split('T')[0],
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json'
+				}
 			}
-		});
+		);
 	}
 </script>
 
@@ -344,8 +352,13 @@
 					on:click={() => selectFlight(flight.id)}
 				>
 					<h2>{flight.rute}</h2>
-					<h2>Departure: {flight.departureairport}</h2>
-					<h3 transition:fade>People: {flight.totalpeople}</h3>
+					{#if getdepartures}
+						<h4>Destination: {flight.arrivalairport}</h4>
+					{:else}
+						<h4>Origin Airport: {flight.departureairport}</h4>
+					{/if}
+					<h4 transition:fade>People: {flight.totalpeople}</h4>
+					<h4 transition:fade>Rooms: {flight.rooms.length}</h4>
 				</div>
 			{/each}
 		{:else}

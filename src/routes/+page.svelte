@@ -219,7 +219,7 @@
 	.card {
 		/*shadow effect*/
 		box-shadow: 0 16px 8px 0 rgba(0, 0, 0, 0.2);
-		background: url('https://media.istockphoto.com/vectors/wavy-abstract-backgrounds-for-design-of-web-banners-packaging-posters-vector-id1211961939?b=1&k=20&m=1211961939&s=170667a&w=0&h=zAfk6widLaz3ZWrpUdxHi1ez_8_5aO2W2wA8fvhs9QE=');
+		background: burlywood;
 		background-size: 100% 100%;
 		display: flex;
 		flex-direction: column;

@@ -13,18 +13,18 @@ from pocketbase.models import Record
 # make a global variable for the old rooms
 
 
-def updatefiles():
+def updatefiles(date):
     client = PocketBase("http://176.58.101.163:8080")
     fileexists: bool = False
-    currentdaystring = datetime.datetime.now().strftime("%Y-%m-%d")
+
     # get tomorrows date
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+
     # convert the date to a iso string
 
-    tomorrowstring = tomorrow.isoformat()
+    querystring = date.isoformat()
 
     result: list[Record] = client.records.get_full_list(
-        "sheet", query_params={"filter": f'date ~ "{tomorrowstring}"'}
+        "sheet", query_params={"filter": f'date ~ "{querystring}"'}
     )
 
     if len(result) > 0:
@@ -42,7 +42,7 @@ def updatefiles():
 
     wb = openpyxl.open(path, read_only=False)
 
-    def getflights(collection: str, date: datetime.date):
+    def getflights(collection: str):
         # convert the date to a YYYY-MM-DD string
         datestring = date.strftime("%Y-%m-%d")
         url = f'http://176.58.101.163:8080/api/collections/{collection}/records?filter=(planned~"{datestring}")'
@@ -57,9 +57,7 @@ def updatefiles():
         return data["items"]
 
     departureswithrooms = []
-    for flight in getflights(
-        "departures", datetime.date.today() + datetime.timedelta(days=1)
-    )["items"]:
+    for flight in getflights("departures")["items"]:
         hasrooms = flight["hasrooms"]
 
         if hasrooms == True:
@@ -67,9 +65,7 @@ def updatefiles():
             departureswithrooms.append(flight)
 
     arrivalswithrooms = []
-    for flight in getflights(
-        "arrivals", datetime.date.today() + datetime.timedelta(days=1)
-    )["items"]:
+    for flight in getflights("arrivals")["items"]:
         hasrooms = flight["hasrooms"]
 
         if hasrooms == True:
@@ -84,9 +80,18 @@ def updatefiles():
     sheet = wb.active
 
     # add the headers
-    sheet.cell(row=1, column=rutecolumn).value = "Rute"
-    sheet.cell(row=1, column=buscolumn).value = "Bus"
-    sheet.cell(row=1, column=roomcolumn).value = "Room"
+
+    for i in range(5, 17):
+        sheet.cell(row=i, column=amountcolumn).value = ""
+        sheet.cell(row=i, column=roomcolumn).value = ""
+        sheet.cell(row=i, column=buscolumn).value = ""
+        sheet.cell(row=i, column=rutecolumn).value = ""
+
+    for i in range(21, 32):
+        sheet.cell(row=i, column=amountcolumn).value = ""
+        sheet.cell(row=i, column=roomcolumn).value = ""
+        sheet.cell(row=i, column=buscolumn).value = ""
+        sheet.cell(row=i, column=rutecolumn).value = ""
 
     row = 5
     for i in range(len(departureswithrooms)):
@@ -98,6 +103,7 @@ def updatefiles():
         departuretime = datetime.datetime.fromisoformat(
             departuretimestring[:-1] + "+00:00"
         )
+        departuretime = departuretime - datetime.timedelta(hours=3)
         busdeparturetime = departuretime - datetime.timedelta(minutes=90)
         busdeparturetimestring = busdeparturetime.strftime("%H:%M")
         flight = departureswithrooms[i]
@@ -114,17 +120,18 @@ def updatefiles():
     row = 21
     for i in range(len(arrivalswithrooms)):
         totalpeople = 0
-        rooms = getrooms(departureswithrooms[i]["flighthash"])
+        rooms = getrooms(arrivalswithrooms[i]["flighthash"])
         for room in rooms:
             totalpeople += room["amount"]
-        departuretimestring = departureswithrooms[i]["planned"]
+        departuretimestring = arrivalswithrooms[i]["planned"]
         departuretime = datetime.datetime.fromisoformat(
             departuretimestring[:-1] + "+00:00"
         )
+        departuretime = departuretime - datetime.timedelta(hours=3)
         # convert the time to local time
 
         timestring = departuretime.strftime("%H:%M")
-        flight = departureswithrooms[i]
+        flight = arrivalswithrooms[i]
         sheet.cell(row=row, column=rutecolumn).value = flight["rute"]
         sheet.cell(row=row, column=buscolumn).value = timestring
         roomstring = ""
@@ -145,7 +152,7 @@ def updatefiles():
             {
                 "excelfile": FileUpload(
                     (
-                        tomorrowstring,
+                        querystring,
                         open(path, "rb"),
                     )
                 )
@@ -156,10 +163,10 @@ def updatefiles():
         client.records.create(
             "sheet",
             {
-                "date": tomorrowstring,
+                "date": querystring,
                 "excelfile": FileUpload(
                     (
-                        tomorrowstring,
+                        querystring,
                         open(path, "rb"),
                     )
                 ),
