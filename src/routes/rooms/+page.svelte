@@ -67,11 +67,15 @@
 
 	let selectedFlight: any = null;
 	onMount(async () => {
+		await init();
+	});
+
+	async function init() {
 		await getflightpocketbase(selectedDate);
 		selectedFlight = flights[0];
 		subscribetodb();
 		getallRooms();
-	});
+	}
 
 	//TODO: fix this function
 	async function getallRooms() {
@@ -129,6 +133,7 @@
 		});
 	}
 	async function togglegetdepartures() {
+		flights = [];
 		getdepartures = !getdepartures;
 
 		await getflightpocketbase(selectedDate);
@@ -156,6 +161,7 @@
 	}
 
 	async function prevDay() {
+		flights = [];
 		selectedDate.setDate(selectedDate.getDate() - 1);
 		selectedDate = selectedDate;
 		await getflightpocketbase(selectedDate);
