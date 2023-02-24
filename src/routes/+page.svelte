@@ -3,11 +3,13 @@
 	import PocketBase from 'pocketbase';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import Ads from './ads.svelte';
 
 	/**
 	 * @type {any[]}
 	 */
 	let todaysflights: any = [];
+	let todaysDate: Date = new Date();
 	let tomorrowsflights: any = [];
 	let tomorrowsdate: Date = new Date();
 	const pb = new PocketBase('http://176.58.101.163:8080');
@@ -67,6 +69,8 @@
 		});
 		todaysflights = todaysflights;
 	}, 1000);
+
+	//Check if todays date has changed
 </script>
 
 <div class="cardContainer">

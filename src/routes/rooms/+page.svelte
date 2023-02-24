@@ -5,6 +5,9 @@
 	import { fade, fly, scale, slide, blur } from 'svelte/transition';
 
 	let roomsLoaded: boolean = true;
+	let roomwithouttransfer: String = '';
+	let roomswithouttransfer: any = [];
+	let noneflightinput: any = null;
 	let selectedDate: Date = new Date();
 	let dataExists: boolean = true;
 	let roomnumber: string = '';
@@ -13,9 +16,10 @@
 	let totalpeopele: number = 0;
 	let roomnumberinput: any = null;
 	let getdepartures: boolean = true;
+
 	const pb = new PocketBase('http://176.58.101.163:8080');
 
-	//pb.autoCancellation(false);
+	pb.autoCancellation(false);
 
 	/**
 	 * @type {any[]}
@@ -91,6 +95,29 @@
 			console.log(flights[i].totalpeople);
 		}
 
+		roomswithouttransfer = await pb.collection('rooms').getFullList(500, {
+			filter: 'flighthash = "" && date ~ "' + selectedDate.toISOString().slice(0, 10) + '" '
+		});
+
+		roomswithouttransfer = roomswithouttransfer.sort(
+			(a: { roomnumber: number }, b: { roomnumber: number }) => {
+				return a.roomnumber - b.roomnumber;
+			}
+		);
+
+		if (getdepartures) {
+			//filter out every room where the key departure is true
+			roomswithouttransfer = roomswithouttransfer.filter((room: { departure: boolean }) => {
+				return room.departure == true;
+			});
+		} else {
+			//filter out every room where the key departure is false
+			roomswithouttransfer = roomswithouttransfer.filter((room: { departure: boolean }) => {
+				return room.departure == false;
+			});
+		}
+
+		roomswithouttransfer = roomswithouttransfer;
 		roomsLoaded = true;
 	}
 
@@ -101,6 +128,13 @@
 	function subscribetodb() {
 		pb.collection('rooms').subscribe('*', async ({ action, record }) => {
 			if (action == 'create') {
+				let hash: String = record.flighthash;
+				if (!hash) {
+					roomwithouttransfer = record.roomnumber;
+					roomswithouttransfer.push(record);
+					roomswithouttransfer = roomswithouttransfer;
+					return;
+				}
 				selectedFlight.rooms.push(record);
 				selectedFlight.totalpeople += record.amount;
 				selectedFlight.rooms = selectedFlight.rooms;
@@ -111,6 +145,13 @@
 
 				flights = flights;
 			} else if (action == 'delete') {
+				if (!record.flighthash) {
+					roomswithouttransfer = roomswithouttransfer.filter(
+						(room: { id: string }) => room.id != record.id
+					);
+					roomswithouttransfer = roomswithouttransfer;
+					return;
+				}
 				selectedFlight.rooms = selectedFlight.rooms.filter(
 					(room: { id: string }) => room.id != record.id
 				);
@@ -134,6 +175,7 @@
 	}
 	async function togglegetdepartures() {
 		flights = [];
+		roomswithouttransfer = [];
 		getdepartures = !getdepartures;
 
 		await getflightpocketbase(selectedDate);
@@ -278,6 +320,38 @@
 			}
 		);
 	}
+
+	async function submitRoomWithoutTransfer(e: any) {
+		let departure: Boolean = getdepartures;
+		pb.collection('rooms')
+			.create({
+				roomnumber: roomwithouttransfer,
+				amount: 1,
+				date: selectedDate.toISOString().split('T')[0],
+				departure: departure
+
+				//clear the input field
+			})
+			.then(() => {
+				roomwithouttransfer = '';
+				console.log('Room without transfer submitted');
+			})
+			.catch((err) => {
+				console.warn(err);
+			});
+
+		roomwithouttransfer = '';
+
+		fetch(
+			'http://176.58.101.163:5000/api/rooms' + '?date=' + selectedDate.toISOString().split('T')[0],
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			}
+		);
+	}
 </script>
 
 <div class="panel">
@@ -296,24 +370,45 @@
 					togglegetdepartures();
 				}}>Switch</button
 			>
-			<button on:click={() => printSheet()}>Print Sheet</button>
+			<button on:click={() => printSheet()}>Download Sheet</button>
 		</div>
-		<div class="inputcontainer">
-			<input
-				bind:this={roomnumberinput}
-				placeholder="Enter room number:"
-				type="text"
-				bind:value={roomnumber}
-				on:click={(e) => selecttext(e)}
-				on:keydown={(e) => (e.key == 'Enter' ? submit() : '')}
-			/>
-			<input
-				type="number"
-				bind:value={amountPeople}
-				on:click={(e) => selecttext(e)}
-				on:keydown={(e) => (e.key == 'Enter' ? submit() : '')}
-			/>
-		</div>
+		<input
+			placeholder="Enter room number without transfer: "
+			type="text"
+			bind:this={noneflightinput}
+			bind:value={roomwithouttransfer}
+			on:keydown={(e) => (e.key == 'Enter' ? submitRoomWithoutTransfer(e) : '')}
+		/>
+		{#each roomswithouttransfer as room}
+			<div in:slide={{ duration: 200 }} out:slide={{ delay: 0, duration: 100 }} class="roomcard">
+				<div class="roomtext">
+					<h3>Roomnumber: {room.roomnumber}</h3>
+				</div>
+				<div class="roomdelete">
+					<button on:click={() => deleteRoom(room.id)}>X</button>
+				</div>
+			</div>
+		{/each}
+		{#if selectedFlight != null}
+			{#key selectedFlight.flighthash}
+				<div class="inputcontainer" out:fade={{ duration: 200 }} in:fade={{ delay: 200 }}>
+					<input
+						bind:this={roomnumberinput}
+						placeholder="Enter room number:"
+						type="text"
+						bind:value={roomnumber}
+						on:click={(e) => selecttext(e)}
+						on:keydown={(e) => (e.key == 'Enter' ? submit() : '')}
+					/>
+					<input
+						type="number"
+						bind:value={amountPeople}
+						on:click={(e) => selecttext(e)}
+						on:keydown={(e) => (e.key == 'Enter' ? submit() : '')}
+					/>
+				</div>
+			{/key}
+		{/if}
 
 		{#if selectedFlight}
 			{#key selectedFlight.id}
@@ -380,6 +475,15 @@
 		justify-content: space-evenly;
 		align-items: center;
 		width: 50%;
+		flex-shrink: 1;
+	}
+
+	.inputcontainer > * {
+		width: 100%;
+	}
+
+	.panel {
+		overflow-y: scroll;
 	}
 
 	.inputcontainer input {
@@ -442,6 +546,12 @@
 		justify-content: center;
 		align-items: center;
 	}
+
+	.buttons > * {
+		text-align: center;
+		text-justify: auto;
+	}
+
 	.panel {
 		display: flex;
 
@@ -476,6 +586,8 @@
 
 	.buttons > * {
 		margin: 100px 10px;
+		flex-shrink: 1;
+		height: 30%;
 	}
 
 	.buttons > button {
