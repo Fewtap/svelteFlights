@@ -19,8 +19,15 @@
 		background: lightslategrey;
 		background-size: cover;
 		background-position: center;
-		min-height: 100vh;
-		overflow: hidden;
+		overflow-y: hidden;
+		
+	}
+
+	/*media query for screens above 2000px width*/
+	@media only screen and (min-width: 2000px) {
+		body{
+			overflow-y: scroll;
+		}
 	}
 
 </style>

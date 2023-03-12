@@ -205,8 +205,7 @@ def updatefiles(date):
         )
         print("File updated")
     else:
-        client.records.create(
-            "sheet",
+        client.collection("sheet").create(
             {
                 "date": querystring,
                 "excelfile": FileUpload(

@@ -82,13 +82,12 @@
 			day: 'numeric'
 		})}
 	</h1>
-
-	<div class="cards">
-		{#if todaysflights.length == 0}
-			<div class="noflights">
-				<h1>No more flights</h1>
-			</div>
-		{:else}
+	{#if todaysflights.length == 0}
+		<div class="noflights">
+			<h1>No more flights</h1>
+		</div>
+	{:else}
+		<div class="cards">
 			{#each todaysflights as flight}
 				{#if new Date() < flight.planned || new Date() < flight.estimated}
 					<!--{#if new Date() < flight.planned || new Date() < flight.estimated}-->
@@ -127,8 +126,8 @@
 					</div>
 				{/if}
 			{/each}
-		{/if}
-	</div>
+		</div>
+	{/if}
 	<div>
 		<h1 style="text-align: center;">
 			{tomorrowsdate.toLocaleDateString('default', {
@@ -140,10 +139,12 @@
 		</h1>
 	</div>
 
-	<div class="cards">
-		{#if tomorrowsflights.length == 0}
-			<p>No flights tomorrow</p>
-		{:else}
+	{#if tomorrowsflights.length == 0}
+		<div class="noflights">
+			<h1>No flights tomorrow</h1>
+		</div>
+	{:else}
+		<div class="cards">
 			{#each tomorrowsflights as flight}
 				<!--{#if new Date() < flight.planned || new Date() < flight.estimated}-->
 				<!--Each card will contain information about the flight-->
@@ -181,8 +182,8 @@
 				</div>
 				<!--{/if}-->
 			{/each}
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -190,11 +191,11 @@
 	@import url('https://fonts.googleapis.com/css2?family=Arvo&family=Barlow+Condensed:ital@0;1&display=swap');
 
 	.noflights {
+		margin-inline: auto;
+		height: 100%;
+		width: 40%;
 		display: flex;
 		justify-content: center;
-		align-items: center;
-		height: 100%;
-		width: 80%;
 		background: rgb(88, 144, 182);
 		border-radius: 20px;
 	}
@@ -213,12 +214,24 @@
 	}
 
 	.cards {
-		width: 1080px;
 		align-items: center;
-		margin: auto;
-		display: flex;
+		margin-inline: auto;
+		/*display: flex;
 		flex-wrap: wrap;
-		justify-content: space-around;
+		justify-content: space-around;*/
+		/*a grid with 3 columns and infinite rows*/
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		grid-template-rows: repeat(auto-fill, 1fr);
+	}
+
+	/*media query for screens above 1080 width*/
+	@media screen and (min-width: 2000px) {
+		/*make the cards a grid with 4 columns and center the div*/
+		.cards {
+			grid-template-columns: 1fr 1fr 1fr 1fr;
+			justify-items: center;
+		}
 	}
 	.card {
 		/*shadow effect*/
