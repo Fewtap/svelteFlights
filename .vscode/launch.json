@@ -5,8 +5,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "npm",
-            "request": "run dev",
+            "type": "node",
+            "request": "",
             "name": "Launch Program",
             "skipFiles": [
                 "<node_internals>/**"

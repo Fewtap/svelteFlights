@@ -7,6 +7,12 @@ const supabase = createClient(
 	SUPABASE_URL,
 	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3BoaGl0amplb29rdHJreXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Nzg1OTcxNTYsImV4cCI6MTk5NDE3MzE1Nn0.eoNOoKc10Z7WmiqVTpyHogh7e1HzeAipxNmIKX1n_rc'
 );
+supabase
+	.channel('any')
+	.on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, (payload) => {
+		console.log('Change received!', payload);
+	})
+	.subscribe();
 
 async function getflights(option) {
 	const url =
@@ -14,70 +20,75 @@ async function getflights(option) {
 	fetch(url)
 		.then((res) => res.json())
 		.then((newdata) => {
-			newdata.forEach((flight) => {
-				// parse the planned key to a date and format it to the desired format
-				const plannedDate = new Date(flight.Planned);
-				const plannedString = moment.utc(plannedDate).format('YYYY-MM-DDTHH:mm:ss+00:00');
-				flight.Planned = plannedString;
-				if (flight.Estimated !== null) {
-					// parse the estimated key to a date and format it to the desired format
-					const estimatedDate = new Date(flight.Estimated);
-					const estimatedString = moment.utc(estimatedDate).format('YYYY-MM-DDTHH:mm:ss+00:00');
-					flight.Estimated = estimatedString;
-				}
-				if (flight.Actual !== null) {
-					// parse the actual key to a date and format it to the desired format
-					const actualDate = new Date(flight.Actual);
-					const actualString = moment.utc(actualDate).format('YYYY-MM-DDTHH:mm:ss+00:00');
-					flight.Actual = actualString;
-				}
-			});
+			let spreadflights = [];
+			for (let i = 0; i < newdata.length; i++) {
+				const flight = newdata[i];
+				let spreadflight = { ...flight, ...flight.Status };
+				delete spreadflight.Status;
 
-			newdata.forEach((flight) => {
-				let changes = false;
-				supabase
+				if (option == 'Arrivals' && spreadflight.ArrivalICAO == spreadflight.DepartureICAO) {
+					console.log(spreadflight.arrivalicao + ' == ' + spreadflight.departureicao);
+
+					console.log('Skipping flight');
+					continue;
+				}
+
+				if (option == 'Arrivals') {
+					spreadflight.type = 'arrival';
+				} else {
+					spreadflight.type = 'departure';
+				}
+
+				const formattedDate = moment.utc(spreadflight.Planned).format('YYYY-MM-DDTHH:mm:ss');
+				spreadflight.Planned = formattedDate;
+
+				if (spreadflight.Estimated != null) {
+					const formattedDate = moment.utc(spreadflight.Estimated).format('YYYY-MM-DDTHH:mm:ss');
+					spreadflight.Estimated = formattedDate;
+				}
+				if (spreadflight.Actual != null) {
+					const formattedDate = moment.utc(spreadflight.Actual).format('YYYY-MM-DDTHH:mm:ss');
+					spreadflight.Actual = formattedDate;
+				}
+
+				const keys = Object.keys(spreadflight);
+				const n = keys.length;
+				const newobj = {};
+				for (let j = 0; j < n; j++) {
+					newobj[keys[j].toLowerCase()] = spreadflight[keys[j]];
+				}
+				spreadflight = newobj;
+
+				spreadflights.push(spreadflight);
+			}
+
+			spreadflights.forEach(async (flight) => {
+				let { error, data } = await supabase
 					.from('flights')
 					.select('*')
-					.eq('FlightHash', flight.FlightHash)
-					.then((response) => {
-						if (response.data.length === 0) {
-							supabase
-								.from('flights')
-								.insert(flight)
-								.then((response) => {
-									console.log('inserted flight');
-								});
-						} else {
-							const oldflight = response.data[0];
-							const newflight = flight;
+					.eq('flighthash', flight.flighthash);
 
-							for (var key in oldflight) {
-								//if the values are different upsert the flight
-								if (oldflight[key] !== newflight[key]) {
-									if (key === 'Status') {
-										for (var key2 in oldflight[key]) {
-											//TODO: check if this is the correct way to check for changes in the status object
-											if (oldflight[key][key2] != newflight[key][key2]) {
-												changes = true;
-											}
-										}
-									} else {
-										changes = true;
-									}
-								}
-							}
-							if (!changes) {
-								console.log('no changes');
-							} else {
-								supabase
-									.from('flights')
-									.upsert(newflight)
-									.then((response) => {
-										console.log('updated flight');
-									});
-							}
+				if (data.length == 0) {
+					console.log('Inserting flight');
+					let { error, data } = await supabase.from('flights').insert(flight);
+				} else {
+					let difference = false;
+					for (var key in flight) {
+						if (flight[key] != data[0][key]) {
+							//print the difference
+							console.log('Old value: ' + data[0][key]);
+							console.log('New value: ' + flight[key]);
+							difference = true;
 						}
-					});
+					}
+					if (difference) {
+						console.log('Updating flight');
+						let { error, data } = await supabase
+							.from('flights')
+							.update(flight)
+							.eq('flighthash', flight.flighthash);
+					}
+				}
 			});
 		});
 }
@@ -86,6 +97,7 @@ getflights('Arrivals');
 getflights('Departures');
 
 setInterval(() => {
+	console.log('Updating flights');
 	getflights('Arrivals');
 	getflights('Departures');
 }, 10000);
