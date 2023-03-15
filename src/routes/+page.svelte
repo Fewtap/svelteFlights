@@ -74,6 +74,21 @@
 		if (flight.estimated) flight.estimated = moment(flight.estimated).subtract(3, 'hours');
 		if (flight.actual) flight.actual = moment(flight.actual).subtract(3, 'hours');
 		flight.busdeparture = moment(flight.planned).subtract(90, 'minutes');
+
+		if (flight.estimated != null) {
+			if (flight.estimated < flight.planned) {
+				flight.en = 'Early';
+				flight.busdeparture = moment(flight.estimated).subtract(90, 'minutes');
+			} else if (flight.estimated > flight.planned) {
+				flight.en = 'Delayed';
+				flight.busdeparture = moment(flight.estimated).subtract(90, 'minutes');
+			}
+			flight.delayed = true;
+		} else {
+			flight.en = 'On Time';
+			flight.delayed = false;
+		}
+
 		return flight;
 	}
 </script>
@@ -84,10 +99,14 @@
 			<h2>{flight.rute}</h2>
 			<div class="seperator" />
 			<h3>Planned: {flight.planned.format('HH:mm')}</h3>
+
 			<h3>Bus Departure: {flight.busdeparture.format('HH:mm')}</h3>
+
 			{#if flight.estimated}
 				<h3>Estimated: {flight.estimated.format('HH:mm')}</h3>
-				<div class="badge delayed">Delayed</div>
+				<div class="badge" class:delayed={flight.delayed}>
+					{flight.en}
+				</div>
 			{/if}
 		</div>
 	{/each}
@@ -97,7 +116,7 @@
 	.card {
 		background-color: #185318;
 		border-radius: 10px;
-		padding: 10px;
+		padding: 2em;
 		margin: 1em;
 		display: flex;
 		flex-direction: column;
@@ -120,6 +139,14 @@
 		height: fit-content;
 	}
 
+	h3 {
+		font-size: 1.5em;
+	}
+
+	h2 {
+		font-size: 2em;
+	}
+
 	/* Make the badge float in the top right corner of the button */
 	.badge {
 		border-radius: 50px;
@@ -139,5 +166,9 @@
 
 	.delayed {
 		background-color: #e1ff00;
+	}
+
+	.on-time {
+		background-color: #00ff00;
 	}
 </style>
