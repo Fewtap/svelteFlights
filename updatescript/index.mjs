@@ -70,13 +70,22 @@ async function getflights(option) {
 
 				if (data != null || data.length == 0) {
 					if (data.length == 0 || data == null) {
+						if (flight.rute == 'GL 571') {
+						}
 						console.log('Inserting flight');
 						let { error, data } = await supabase.from('flights').insert(flight);
 					}
 				} else {
 					let difference = false;
 					for (var key in flight) {
+						if (flight.rute == 'GL 571') {
+							console.log(key + ' ' + flight[key]);
+						}
 						if (flight[key] != data[0][key]) {
+							if (key == 'estimated' && flight.rute == 'GL 571') {
+								console.log('Old value: ' + data[0][key]);
+								console.log('New value: ' + flight[key]);
+							}
 							//print the difference
 							console.log('Old value: ' + data[0][key]);
 							console.log('New value: ' + flight[key]);
