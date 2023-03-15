@@ -27,7 +27,7 @@ async function getflights(option) {
 				delete spreadflight.Status;
 
 				if (option == 'Arrivals' && spreadflight.ArrivalICAO == spreadflight.DepartureICAO) {
-					console.log(spreadflight.arrivalicao + ' == ' + spreadflight.departureicao);
+					console.log(spreadflight.ArrivalICAO + ' == ' + spreadflight.DepartureICAO);
 
 					console.log('Skipping flight');
 					continue;
@@ -68,9 +68,11 @@ async function getflights(option) {
 					.select('*')
 					.eq('flighthash', flight.flighthash);
 
-				if (data.length == 0) {
-					console.log('Inserting flight');
-					let { error, data } = await supabase.from('flights').insert(flight);
+				if (data != null || data.length == 0) {
+					if (data.length == 0 || data == null) {
+						console.log('Inserting flight');
+						let { error, data } = await supabase.from('flights').insert(flight);
+					}
 				} else {
 					let difference = false;
 					for (var key in flight) {
@@ -82,7 +84,7 @@ async function getflights(option) {
 						}
 					}
 					if (difference) {
-						console.log('Updating flight');
+						console.log('Updating flight', flight.rute);
 						let { error, data } = await supabase
 							.from('flights')
 							.update(flight)
@@ -97,7 +99,7 @@ getflights('Arrivals');
 getflights('Departures');
 
 setInterval(() => {
-	console.log('Updating flights');
+	console.log('Updating flights...');
 	getflights('Arrivals');
 	getflights('Departures');
 }, 10000);

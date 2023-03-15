@@ -1,266 +1,143 @@
 <script lang="ts">
-	// Import the functions you need from the SDKs you need
-	import PocketBase from 'pocketbase';
+	import moment from 'moment';
+	import { createClient } from '@supabase/supabase-js';
 	import { onMount } from 'svelte';
-	import { slide } from 'svelte/transition';
-	import Ads from './ads.svelte';
+	import { fade, slide } from 'svelte/transition';
 
-	/**
-	 * @type {any[]}
-	 */
-	let todaysflights: any = [];
-	let todaysDate: Date = new Date();
-	let tomorrowsflights: any = [];
-	let tomorrowsdate: Date = new Date();
-	const pb = new PocketBase('http://176.58.101.163:8080');
-	tomorrowsdate.setDate(tomorrowsdate.getDate() + 1);
+	const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
 
-	const getflightpocketbase = async (date: Date) => {
-		let flights: any = [];
+	const supabase = createClient(
+		SUPABASE_URL,
+		'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3BoaGl0amplb29rdHJreXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Nzg1OTcxNTYsImV4cCI6MTk5NDE3MzE1Nn0.eoNOoKc10Z7WmiqVTpyHogh7e1HzeAipxNmIKX1n_rc'
+	);
 
-		date.setHours(0, 0, 0, 0);
-		let datestring = date.toISOString().slice(0, 10);
-		console.log(
-			'Getting flights for: ' + date.toLocaleDateString() + ' with datestring: ' + datestring
-		);
-
-		const result = await pb.collection('departures').getFullList(500, {
-			filter: 'planned ~ "' + datestring + '"'
-		});
-
-		console.table(result);
-
-		result.forEach((doc) => {
-			doc.planned = new Date(doc.planned);
-			if (doc.estimated) doc.estimated = new Date(doc.estimated);
-
-			let busdeparture = new Date(doc.planned);
-			busdeparture.setMinutes(busdeparture.getMinutes() - 90);
-			doc.busdeparture = busdeparture;
-
-			flights.push(doc);
-		});
-
-		flights = flights.sort((a: any, b: any) => {
-			return a.planned.getTime() - b.planned.getTime();
-		});
-
-		//remove flights where the date is more than the planned and the estimated
-
-		return flights;
-	};
+	let flightslist: any = [];
 
 	onMount(async () => {
-		todaysflights = await getflightpocketbase(new Date());
-		todaysflights = todaysflights.filter((flight: any) => {
-			return flight.planned > new Date() || flight.estimated > new Date();
-		});
+		let startofday = moment().startOf('day').format('YYYY-MM-DDTHH:mm:ss');
+		let endofday = moment().endOf('day').format('YYYY-MM-DDTHH:mm:ss');
 
-		console.log('Todays flights: ' + todaysflights.length);
-		let tomorrowsDate = new Date();
-		tomorrowsDate.setDate(tomorrowsDate.getDate() + 1);
+		let { data: flights, error } = await supabase
+			.from('flights')
+			.select('*')
+			.gte('planned', startofday)
+			.lte('planned', endofday)
+			.eq('type', 'departure')
+			.order('planned', { ascending: true });
 
-		tomorrowsflights = await getflightpocketbase(tomorrowsDate);
+		for (let i = 0; i < flights.length; i++) {
+			let flight = flights[i];
+			flight = converttimes(flight);
+
+			flightslist.push(flight);
+		}
+
+		flightslist = flightslist;
+
+		supabase
+			.channel('any')
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, (payload) => {
+				if (payload.new.type != 'departure') {
+					return;
+				}
+
+				if (payload.eventType == 'UPDATE') {
+					let flight = flightslist.find((flight) => flight.flighthash == payload.new.flighthash);
+					flight = converttimes(payload.new);
+					flightslist = flightslist.filter((flight) => flight.flighthash != payload.new.flighthash);
+					flightslist.push(flight);
+					//sort the list by planned time
+					flightslist.sort((a, b) => {
+						return moment(a.planned).diff(moment(b.planned));
+					});
+					flightslist = flightslist;
+				} else if (payload.eventType == 'INSERT') {
+					console.log('insert');
+					let flight = converttimes(payload.new);
+					if (flight.planned > moment().endOf('day')) return;
+					flightslist.push(flight);
+					//sort the list by planned time
+					flightslist.sort((a, b) => {
+						return moment(a.planned).diff(moment(b.planned));
+					});
+					flightslist = flightslist;
+				} else if (payload.eventType == 'DELETE') {
+					console.log('delete');
+					flightslist = flightslist.filter((flight) => flight.flighthash != payload.old.flighthash);
+				}
+			})
+			.subscribe();
 	});
 
-	setInterval(() => {
-		todaysflights = todaysflights.filter((flight: any) => {
-			return flight.planned > new Date() || flight.estimated > new Date();
-		});
-		todaysflights = todaysflights;
-	}, 1000);
-
-	//Check if todays date has changed
+	function converttimes(flight) {
+		flight.planned = moment(flight.planned).subtract(3, 'hours');
+		if (flight.estimated) flight.estimated = moment(flight.estimated).subtract(3, 'hours');
+		if (flight.actual) flight.actual = moment(flight.actual).subtract(3, 'hours');
+		flight.busdeparture = moment(flight.planned).subtract(90, 'minutes');
+		return flight;
+	}
 </script>
 
-<div class="cardContainer">
-	<h1 style="text-align: center;">
-		{new Date().toLocaleDateString('default', {
-			numberingSystem: 'latn',
-			weekday: 'long',
-			month: 'long',
-			day: 'numeric'
-		})}
-	</h1>
-	{#if todaysflights.length == 0}
-		<div class="noflights">
-			<h1>No more flights</h1>
+<div class="container">
+	{#each flightslist as flight}
+		<div class="card" transition:fade>
+			<h2>{flight.rute}</h2>
+			<div class="seperator" />
+			<h3>Planned: {flight.planned.format('HH:mm')}</h3>
+			<h3>Bus Departure: {flight.busdeparture.format('HH:mm')}</h3>
+			{#if flight.estimated}
+				<h3>Estimated: {flight.estimated.format('HH:mm')}</h3>
+				<div class="badge delayed">Delayed</div>
+			{/if}
 		</div>
-	{:else}
-		<div class="cards">
-			{#each todaysflights as flight}
-				{#if new Date() < flight.planned || new Date() < flight.estimated}
-					<!--{#if new Date() < flight.planned || new Date() < flight.estimated}-->
-					<!--Each card will contain information about the flight-->
-					<div transition:slide class="card">
-						<div class="cardheader">
-							<h2 class="cardtitle">{flight.rute}</h2>
-							<h2 class="cardtitle">
-								{#if flight.estimated}
-									Estimated:
-									{flight.estimated.toLocaleTimeString([], {
-										hour: '2-digit',
-										minute: '2-digit',
-										hour12: false
-									})}
-								{:else}
-									Planned:
-									{flight.planned.toLocaleTimeString([], {
-										hour: '2-digit',
-										minute: '2-digit',
-										hour12: false
-									})}
-								{/if}
-							</h2>
-						</div>
-						<div class="cardbody">
-							<p>Destination: {flight.arrivalairport}</p>
-							<p>
-								Bus departure {flight.busdeparture.toLocaleTimeString([], {
-									hour: '2-digit',
-									minute: '2-digit',
-									hour12: false
-								})}
-							</p>
-						</div>
-					</div>
-				{/if}
-			{/each}
-		</div>
-	{/if}
-	<div>
-		<h1 style="text-align: center;">
-			{tomorrowsdate.toLocaleDateString('default', {
-				numberingSystem: 'latn',
-				weekday: 'long',
-				month: 'long',
-				day: 'numeric'
-			})}
-		</h1>
-	</div>
-
-	{#if tomorrowsflights.length == 0}
-		<div class="noflights">
-			<h1>No flights tomorrow</h1>
-		</div>
-	{:else}
-		<div class="cards">
-			{#each tomorrowsflights as flight}
-				<!--{#if new Date() < flight.planned || new Date() < flight.estimated}-->
-				<!--Each card will contain information about the flight-->
-				<div class="card">
-					<div class="cardheader">
-						<h2 class="cardtitle">{flight.rute}</h2>
-						<h2 class="cardtitle">
-							{#if flight.estimated}
-								Estimated:
-								{flight.estimated.toLocaleTimeString([], {
-									hour: '2-digit',
-									minute: '2-digit',
-									hour12: false
-								})}
-							{:else}
-								Planned:
-								{flight.planned.toLocaleTimeString([], {
-									hour: '2-digit',
-									minute: '2-digit',
-									hour12: false
-								})}
-							{/if}
-						</h2>
-					</div>
-					<div class="cardbody">
-						<p>Destination: {flight.arrivalairport}</p>
-						<p>
-							Bus departure {flight.busdeparture.toLocaleTimeString([], {
-								hour: '2-digit',
-								minute: '2-digit',
-								hour12: false
-							})}
-						</p>
-					</div>
-				</div>
-				<!--{/if}-->
-			{/each}
-		</div>
-	{/if}
+	{/each}
 </div>
 
 <style>
-	@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital@0;1&display=swap');
-	@import url('https://fonts.googleapis.com/css2?family=Arvo&family=Barlow+Condensed:ital@0;1&display=swap');
-
-	.noflights {
-		margin-inline: auto;
-		height: 100%;
-		width: 40%;
-		display: flex;
-		justify-content: center;
-		background: rgb(88, 144, 182);
-		border-radius: 20px;
-	}
-
-	.cardheader {
-		display: flex;
-		flex-direction: column;
-		justify-content: space-around;
-		align-items: center;
-		max-height: 25%;
-		padding: 10px;
-	}
-
-	.cardtitle {
-		font-size: 1em;
-	}
-
-	.cards {
-		align-items: center;
-		margin-inline: auto;
-		/*display: flex;
-		flex-wrap: wrap;
-		justify-content: space-around;*/
-		/*a grid with 3 columns and infinite rows*/
-		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
-		grid-template-rows: repeat(auto-fill, 1fr);
-	}
-
-	/*media query for screens above 1080 width*/
-	@media screen and (min-width: 2000px) {
-		/*make the cards a grid with 4 columns and center the div*/
-		.cards {
-			grid-template-columns: 1fr 1fr 1fr 1fr;
-			justify-items: center;
-		}
-	}
 	.card {
-		/*shadow effect*/
-		box-shadow: 0 16px 8px 0 rgba(0, 0, 0, 0.2);
-		background: burlywood;
-		background-size: 100% 100%;
+		background-color: #185318;
+		border-radius: 10px;
+		padding: 10px;
+		margin: 1em;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-around;
-		margin: 1em;
-		height: clamp(20rem, 20vw, 20rem);
-		width: clamp(20rem, 20vw, 20rem);
-		border-radius: 10px;
-	}
-	p {
-		margin-right: 1em;
-		margin-left: 1em;
+		justify-content: center;
+		align-items: center;
+		position: relative;
+		color: aliceblue;
 	}
 
-	.card > * {
-		margin: 0.5em;
-		text-align: center;
+	.seperator {
+		width: 80%;
+		height: 2px;
+		background-color: #000;
+	}
+
+	.container {
+		display: grid;
+		/*make 3 columns and the content will wrap*/
+		grid-template-columns: repeat(3, 1fr);
+		height: fit-content;
+	}
+
+	/* Make the badge float in the top right corner of the button */
+	.badge {
+		border-radius: 50px;
+		color: black;
+
+		padding: 10px;
 		font-size: 1.5em;
-		color: chocolate;
-		font-family: 'Arvo', serif;
+		width: fit-content;
+		position: absolute; /* Position the badge within the relatively positioned button */
+		top: -10px;
+		right: -10px;
 	}
 
-	h1 {
-		/*add an underline to the title*/
-		text-decoration: underline;
+	.cancelled {
+		background-color: #ff0000;
+	}
+
+	.delayed {
+		background-color: #e1ff00;
 	}
 </style>
