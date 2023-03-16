@@ -1,118 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
-	import { createClient } from '@supabase/supabase-js';
-	import moment from 'moment';
+	import { fetchFlights } from './scripts/flightutils';
 
-	const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
+	import moment from 'moment';
 
 	let currentDate = moment().format('YYYY-MM-DD');
 	let selectedFlight: any = null;
 
 	let roomwithflightinput = '';
 
-	const supabase = createClient(
-		SUPABASE_URL,
-		'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3BoaGl0amplb29rdHJreXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Nzg1OTcxNTYsImV4cCI6MTk5NDE3MzE1Nn0.eoNOoKc10Z7WmiqVTpyHogh7e1HzeAipxNmIKX1n_rc'
-	);
-
 	let flightslist: any = [];
 
 	onMount(async () => {
-		const { data, error } = await supabase
-			.from('flights')
-			.select('*, rooms(*)')
-			.gte('planned', moment().startOf('day').format('YYYY-MM-DDTHH:mm:ss'))
-			.lte('planned', moment().endOf('day').format('YYYY-MM-DDTHH:mm:ss'))
-			.eq('type', 'departure')
-			.order('planned', { ascending: true });
-
-		if (error != null) console.log(error);
-		else {
-			data.forEach((flight: any) => {
-				flight.planned = moment(flight.planned).subtract(3, 'hours');
-			});
-			flightslist = data;
-		}
-
-		setTimeout(() => {
-			let elements = document.getElementsByClassName('flight');
-			for (let i = 0; i < elements.length; i++) {
-				elements[i].classList.remove('selected');
-			}
-
-			if (flightslist.length > 0) {
-				let element = document.getElementById(flightslist[0].flighthash);
-				element.classList.toggle('selected');
-				selectedFlight = flightslist[0];
-			}
-		}, 200);
+		flightslist = await fetchFlights(new Date(), 'departure');
+		console.log(flightslist);
 	});
-
-	function handleKeyDown(event) {
-		if (event.key === 'Enter') {
-			console.log('Enter key pressed');
-			// Perform your desired action here
-			if (selectedFlight != null) {
-				console.log('selected flight');
-				console.log(selectedFlight);
-
-				//add room to flight
-				supabase
-					.from('rooms')
-					.upsert({ roomnumber: roomwithflightinput, flighthash: selectedFlight.flighthash })
-					.select('*')
-					.then((data) => {
-						let updatedflight;
-
-						supabase
-							.from('flights')
-							.select('*, rooms(*)')
-							.eq('flighthash', selectedFlight.flighthash)
-							.then((data) => {
-								selectedFlight = data.data[0];
-							});
-					});
-
-				console.log('no flight selected');
-			}
-
-			roomwithflightinput = '';
-		}
-	}
-
-	function selectFlight(id: string) {
-		let elements = document.getElementsByClassName('flight');
-		for (let i = 0; i < elements.length; i++) {
-			elements[i].classList.remove('selected');
-		}
-		console.log(id);
-		//find the element with the id
-		let element = document.getElementById(id);
-		element.classList.toggle('selected');
-		selectedFlight = flightslist.find((flight) => flight.flighthash === id);
-	}
-
-	function removeRoomFromFlight(id: string) {
-		console.log('ID: ' + id);
-		supabase
-			.from('rooms')
-			.delete()
-			.eq('id', id)
-			.then((data) => {
-				let updatedflight;
-
-				supabase
-					.from('flights')
-					.select('*, rooms(*)')
-					.eq('flighthash', selectedFlight.flighthash)
-					.then((data) => {
-						selectedFlight = data.data[0];
-						console.log(selectedFlight.rooms.length);
-						flightslist = flightslist;
-					});
-			});
-	}
 </script>
 
 <div class="container">
@@ -128,17 +31,12 @@
 			<div class="withoutflights">
 				<h1>Without rooms</h1>
 			</div>
-			<input
-				type="text"
-				bind:value={roomwithflightinput}
-				placeholder="Input room with flight"
-				on:keydown={handleKeyDown}
-			/>
+			<input type="text" bind:value={roomwithflightinput} placeholder="Input room with flight" />
 			<div class="withflights">
 				{#if selectedFlight != null}
 					{#each selectedFlight.rooms as room}
 						<div class="roomcontainer">
-							<button on:click={removeRoomFromFlight(room.id)}>X</button>
+							<button>X</button>
 							<h1>{room.roomnumber}</h1>
 						</div>
 					{/each}
