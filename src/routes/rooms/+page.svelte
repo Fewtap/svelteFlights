@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { fetchFlights } from './scripts/flightutils';
+	import { createClient } from '@supabase/supabase-js';
 
 	import moment from 'moment';
 
@@ -11,9 +12,13 @@
 	let roomwithflightinput = '';
 
 	let flightslist: any = [];
-
+	const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
+	const supabase = createClient(
+		SUPABASE_URL,
+		'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3BoaGl0amplb29rdHJreXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Nzg1OTcxNTYsImV4cCI6MTk5NDE3MzE1Nn0.eoNOoKc10Z7WmiqVTpyHogh7e1HzeAipxNmIKX1n_rc'
+	);
 	onMount(async () => {
-		flightslist = await fetchFlights(new Date(), 'departure');
+		flightslist = await fetchFlights(supabase, new Date(), 'departure');
 		console.log(flightslist);
 	});
 </script>
