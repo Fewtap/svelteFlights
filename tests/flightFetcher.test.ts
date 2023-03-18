@@ -1,5 +1,5 @@
 // tests/flightFetcher.test.ts
-import { fetchFlights } from '../src/routes/rooms/scripts/flightutils';
+import { fetchFlights } from '../src/routes/flightutils';
 import { createClient } from '@supabase/supabase-js';
 import moment from 'moment';
 import type { SupabaseClient } from '@supabase/supabase-js';
