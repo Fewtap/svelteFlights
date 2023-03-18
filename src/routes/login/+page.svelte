@@ -1,30 +1,30 @@
-<script>
+<script lang="ts">
 	import supabase from '../../supabase.js';
+	import { login } from './login';
 
 	let email = '';
 	let password = '';
-	let usermail = '';
+	let usermail: string | undefined = '';
 
-	async function login() {
-		const { data, error } = await supabase.auth.signInWithPassword({
-			email: email,
-			password: password
-		});
-
-		if (error) {
-			console.error('Login error:', error.message);
-		} else {
-			console.log('Logged in:', data);
+	async function submitlogin() {
+		const data = await login(email, password);
+		if (data) {
+			usermail = data.user?.email;
 		}
 
 		email = '';
 		password = '';
-		// @ts-ignore
-		usermail = data.user?.email;
+	}
+
+	async function logout() {
+		console.log('logout');
+		let data = await supabase.auth.signOut();
+		usermail = '';
+		console.log(data);
 	}
 </script>
 
-<form on:submit|preventDefault={login}>
+<form on:submit|preventDefault={submitlogin}>
 	{#if usermail}
 		<p>Logged in as {usermail}</p>
 	{:else}
@@ -34,3 +34,5 @@
 	<input type="password" bind:value={password} placeholder="Password" />
 	<button type="submit">Log in</button>
 </form>
+
+<button type="button" on:click={logout}>Log out</button>

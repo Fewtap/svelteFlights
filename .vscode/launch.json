@@ -1,17 +1,24 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
             "type": "node",
-            "request": "",
-            "name": "Launch Program",
+            "request": "launch",
+            "name": "Launch SvelteKit App",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${file}"
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+    "run",
+    "dev"
+],
+            "outputCapture": "std",
+            "env": {
+                "DEBUG": "svelte:*,vite:*"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "neverOpen"
         }
     ]
 }

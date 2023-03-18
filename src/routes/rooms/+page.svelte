@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
-	import { fetchFlights } from './scripts/flightutils';
+	import { fetchFlights } from '../scripts/flightutils';
 	import { createClient } from '@supabase/supabase-js';
+	import type { Flight } from '../scripts/interfaces';
+	import { converttimes } from '../scripts/flightutils';
+	import Card from '../card.svelte';
+	import supabase from '../../supabase';
 
 	import moment from 'moment';
 
@@ -11,15 +15,10 @@
 
 	let roomwithflightinput = '';
 
-	let flightslist: any = [];
-	const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
-	const supabase = createClient(
-		SUPABASE_URL,
-		'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3BoaGl0amplb29rdHJreXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Nzg1OTcxNTYsImV4cCI6MTk5NDE3MzE1Nn0.eoNOoKc10Z7WmiqVTpyHogh7e1HzeAipxNmIKX1n_rc'
-	);
+	let flightslist: Flight[];
+
 	onMount(async () => {
-		flightslist = await fetchFlights(supabase, new Date(), 'departure');
-		console.log(flightslist);
+		flightslist = (await fetchFlights(supabase, new Date(), 'departure')) as Flight[];
 	});
 </script>
 
@@ -51,9 +50,8 @@
 	</div>
 	<div class="halfcontainer flightdisplay">
 		{#each flightslist as flight}
-			<div class="flight" id={flight.flighthash} on:click={selectFlight(flight.flighthash)}>
-				<h1>{flight.rute}</h1>
-				<h2>Flight Departure: {moment(flight.planned).format('HH:mm')}</h2>
+			<div class="flight" id={flight.flighthash}>
+				<Card {flight} />
 			</div>
 		{/each}
 	</div>
@@ -93,14 +91,18 @@
 		flex-direction: column;
 		justify-content: start;
 		align-items: center;
-		border: 1px solid black;
+
 		margin: 1em;
 
 		padding: 1em;
+		background-color: transparent;
+		transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.3s;
+		border-radius: 10px;
 	}
 
 	.flight:hover {
 		background-color: #185318;
+		transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.5s;
 	}
 	h1 {
 		margin-inline: auto;

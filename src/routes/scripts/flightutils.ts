@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import moment from 'moment';
 import { element } from 'svelte/internal';
+import type { Flight } from './interfaces';
 
 const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
 const supabase = createClient(
@@ -37,8 +38,50 @@ export async function fetchFlights( supabase: SupabaseClient,date: Date, type: s
 	}
 }
 
+/**
+ * 
+ * @param flight  Flight to convert
+ * @returns Flight with converted times
+ * @example
+ * const flight = await converttimes(flight);
+ * 
+ * 
+ */
+export function converttimes(flight: Flight) {
+		flight.cancelled = false;
+		flight.planned = moment(flight.planned).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
+		if (flight.estimated)
+			flight.estimated = moment(flight.estimated)
+				.subtract(3, 'hours')
+				.format('YYYY-MM-DDTHH:mm:ss');
+		if (flight.actual)
+			flight.actual = moment(flight.actual).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
+		flight.busdeparture = moment(flight.planned)
+			.subtract(90, 'minutes')
+			.format('YYYY-MM-DDTHH:mm:ss');
 
+		if (flight.estimated != null) {
+			if (flight.estimated < flight.planned) {
+				flight.en = 'Early';
+				flight.busdeparture = moment(flight.estimated)
+					.subtract(90, 'minutes')
+					.format('YYYY-MM-DDTHH:mm:ss');
+			} else if (flight.estimated > flight.planned) {
+				flight.en = 'Delayed';
+				flight.busdeparture = moment(flight.estimated)
+					.subtract(90, 'minutes')
+					.format('YYYY-MM-DDTHH:mm:ss');
+			}
+			flight.delayed = true;
+		} else if (flight.en == 'Cancelled') {
+			flight.cancelled = true;
+		} else {
+			flight.en = 'On Time';
+			flight.delayed = false;
+		}
 
+		return flight;
+	}
 
 
 /**
