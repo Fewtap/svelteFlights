@@ -1,9 +1,10 @@
 <script lang="ts">
 	import moment from 'moment';
-	import supabase from '../supabase';
+	import supabase from '../scripts/supabase';
 	import { onMount } from 'svelte';
-	import type { Flight } from './scripts/interfaces';
-	import Card from './card.svelte';
+	import type { Flight } from '../scripts/interfaces';
+	import Card from '../components/card.svelte';
+	import { converttimes } from '../scripts/flightutils';
 
 	let flightslist: Flight[] = [];
 

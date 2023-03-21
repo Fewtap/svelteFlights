@@ -54,3 +54,8 @@ interface Room {
     planned: string | null;
     amount: number | 1;
 }
+
+export interface flighttype {
+	departure: 'departure',
+	arrival: 'arrival'
+}

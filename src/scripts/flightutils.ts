@@ -1,13 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import moment from 'moment';
 import { element } from 'svelte/internal';
-import type { Flight } from './interfaces';
+import type { Flight} from './interfaces';
 
 const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
 const supabase = createClient(
 	SUPABASE_URL,
 	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3BoaGl0amplb29rdHJreXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Nzg1OTcxNTYsImV4cCI6MTk5NDE3MzE1Nn0.eoNOoKc10Z7WmiqVTpyHogh7e1HzeAipxNmIKX1n_rc'
 );
+
+
 
 
 /**
@@ -18,9 +20,11 @@ const supabase = createClient(
  * @example
  * const flights = await fetchFlights(new Date(), 'arrival');
  */
-export async function fetchFlights( supabase: SupabaseClient,date: Date, type: string){
+export async function fetchFlights( supabase: SupabaseClient,date: string, type: string){
 
 	const { start, end } = getTimeSpan(date);
+	console.log(start.format('YYYY-MM-DDTHH:mm:ss'));
+	console.log(end.format('YYYY-MM-DDTHH:mm:ss'));
 
 	const { data, error } = await supabase
 			.from('flights')
@@ -118,7 +122,7 @@ export async function addRoomToFlight(flighthash: string, room: string): Promise
  * const { start, end } = getTimeSpan(new Date());
  * 
  */
-function getTimeSpan(date: Date): { start: moment.Moment; end: moment.Moment; }{
+function getTimeSpan(date: string): { start: moment.Moment; end: moment.Moment; }{
 	const startofDay = moment(date).startOf('day');
 	const endofDay = moment(date).endOf('day');
 

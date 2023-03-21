@@ -1,15 +1,20 @@
 <script lang="ts">
-	import type { Flight } from './scripts/interfaces';
+	import type { Flight } from '../scripts/interfaces';
 	import moment from 'moment';
 	import { fade, slide } from 'svelte/transition';
 
 	export let flight: Flight;
 </script>
 
-<div class="card" transition:fade>
+<div class="card" transition:fade id={flight.flighthash}>
 	<h2>{flight.rute}</h2>
 	<div class="seperator" />
-	<h3>Destination: {flight.arrivalairport}</h3>
+	{#if flight.type == 'departure'}
+		<h3>Destination: {flight.arrivalairport}</h3>
+	{:else if flight.type == 'arrival'}
+		<h3>Origin: {flight.departureairport}</h3>
+	{/if}
+
 	<h3>Planned: {moment(flight.planned).format('HH:mm')}</h3>
 
 	<h3>Bus Departure: {moment(flight.busdeparture).format('HH:mm')}</h3>
@@ -37,6 +42,7 @@
 		align-items: center;
 		position: relative;
 		color: aliceblue;
+		text-align: center;
 	}
 
 	h3 {

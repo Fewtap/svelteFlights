@@ -1,33 +1,67 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
-	import { fetchFlights } from '../scripts/flightutils';
+	import { fetchFlights } from '../../scripts/flightutils';
 	import { createClient } from '@supabase/supabase-js';
-	import type { Flight } from '../scripts/interfaces';
-	import { converttimes } from '../scripts/flightutils';
-	import Card from '../card.svelte';
-	import supabase from '../../supabase';
+	import type { Flight, flighttype } from '../../scripts/interfaces';
+	import { converttimes } from '../../scripts/flightutils';
+	import Card from '../../components/card.svelte';
+	import supabase from '../../scripts/supabase';
 
 	import moment from 'moment';
 
 	let currentDate = moment().format('YYYY-MM-DD');
+	console.log(currentDate);
 	let selectedFlight: any = null;
 
+	let type: string = 'departure';
 	let roomwithflightinput = '';
 
-	let flightslist: Flight[];
+	let flightslist: Flight[] = [];
 
 	onMount(async () => {
-		flightslist = (await fetchFlights(supabase, new Date(), 'departure')) as Flight[];
+		await getflights();
 	});
+
+	async function getflights() {
+		console.log(new Date(currentDate));
+		flightslist = [];
+		flightslist = (await fetchFlights(supabase, currentDate, type)) as Flight[];
+		flightslist.forEach((flight) => {
+			flight = converttimes(flight);
+		});
+		flightslist = flightslist;
+		console.log(flightslist.length);
+	}
+
+	function changeDate(datechange: string) {
+		if (datechange == 'next') {
+			currentDate = moment(currentDate).add(1, 'day').format('YYYY-MM-DD');
+		} else if (datechange == 'previous') {
+			currentDate = moment(currentDate).subtract(1, 'day').format('YYYY-MM-DD');
+		}
+		getflights();
+	}
+
+	function changeType() {
+		flightslist = [];
+		if (type == 'departure') {
+			type = 'arrival';
+		} else if (type == 'arrival') {
+			type = 'departure';
+		}
+		getflights();
+	}
 </script>
 
 <div class="container">
 	<div class="halfcontainer">
 		<div class="datecontainer">
-			<button>Previous Day</button>
-			<h1>Day</h1>
-			<button>Next Day</button>
+			<button on:click={() => changeDate('previous')}>Previous Day</button>
+			<h1>{currentDate}</h1>
+			<h1>{type.toLocaleUpperCase()}</h1>
+			<button on:click={() => changeDate('next')}>Next Day</button>
+			<button on:click={changeType}>Change Type</button>
 		</div>
 
 		<div class="inputcontainer">
@@ -49,10 +83,11 @@
 		</div>
 	</div>
 	<div class="halfcontainer flightdisplay">
-		{#each flightslist as flight}
-			<div class="flight" id={flight.flighthash}>
-				<Card {flight} />
-			</div>
+		{#if flightslist.length == 0}
+			<h1>No flights found</h1>
+		{/if}
+		{#each flightslist as flight (flight.flighthash)}
+			<Card {flight} />
 		{/each}
 	</div>
 </div>
@@ -87,17 +122,6 @@
 	}
 
 	.flight {
-		display: flex;
-		flex-direction: column;
-		justify-content: start;
-		align-items: center;
-
-		margin: 1em;
-
-		padding: 1em;
-		background-color: transparent;
-		transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.3s;
-		border-radius: 10px;
 	}
 
 	.flight:hover {
@@ -116,7 +140,8 @@
 	.datecontainer {
 		display: flex;
 		flex-direction: row;
-		width: 30%;
+		width: 80%;
+
 		justify-content: space-between;
 		align-items: center;
 		margin-inline: auto;
@@ -124,8 +149,12 @@
 		padding: 1em;
 	}
 
+	.datecontainer > * {
+		margin: 10px;
+	}
+
 	.datecontainer button {
-		width: 30%;
+		width: 10%;
 		height: 5em;
 		border-radius: 10px;
 		border: none;

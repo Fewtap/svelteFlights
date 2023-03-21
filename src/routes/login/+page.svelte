@@ -1,5 +1,5 @@
 <script lang="ts">
-	import supabase from '../../supabase.js';
+	import supabase from '../../scripts/supabase.js';
 	import { login } from './login';
 
 	let email = '';
