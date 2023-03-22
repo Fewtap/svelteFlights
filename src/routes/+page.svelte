@@ -33,10 +33,17 @@
 	});
 </script>
 
-<div class="container">
-	{#each flightslist as flight}
-		<Card {flight} />
-	{/each}
+<div class="outercontainer">
+	<div class="imgcontainer">
+		<img
+			src="https://static.wixstatic.com/media/015531_11331bde76244c9db30c799c6b22fc00~mv2.png/v1/fill/w_363,h_127,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Hotel%20Ilulissat%20Logo%20-SORTSKRIFT.png"
+		/>
+	</div>
+	<div class="container">
+		{#each flightslist as flight}
+			<Card {flight} />
+		{/each}
+	</div>
 </div>
 
 <style>
@@ -45,5 +52,31 @@
 		/*make 3 columns and the content will wrap*/
 		grid-template-columns: repeat(3, 1fr);
 		height: fit-content;
+		gap: 2rem;
+		padding: 10px;
+
+		justify-items: center;
+	}
+
+	@media screen and (max-width: 1080px) {
+		.imgcontainer {
+			display: flex;
+			justify-content: center;
+			margin: 1em;
+		}
+
+		.imgcontainer img {
+			width: 30%;
+		}
+	}
+
+	@media screen and (min-width: 1081px) {
+		.imgcontainer {
+			display: none;
+		}
+
+		.container {
+			grid-template-columns: repeat(4, 1fr);
+		}
 	}
 </style>

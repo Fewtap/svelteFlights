@@ -80,7 +80,7 @@ export function converttimes(flight: Flight) {
 		} else if (flight.en == 'Cancelled') {
 			flight.cancelled = true;
 		} else {
-			flight.en = 'On Time';
+			
 			flight.delayed = false;
 		}
 

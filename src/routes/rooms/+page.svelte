@@ -7,8 +7,9 @@
 	import { converttimes } from '../../scripts/flightutils';
 	import Card from '../../components/card.svelte';
 	import supabase from '../../scripts/supabase';
-
+	import { selectedCard } from '../../scripts/stores';
 	import moment from 'moment';
+	import Room from '../../components/room.svelte';
 
 	let currentDate = moment().format('YYYY-MM-DD');
 	console.log(currentDate);
@@ -16,12 +17,17 @@
 
 	let type: string = 'departure';
 	let roomwithflightinput = '';
+	let amount = '1';
 
 	let flightslist: Flight[] = [];
 
 	onMount(async () => {
 		await getflights();
+
+		selectedCard.set(flightslist[0].flighthash);
 	});
+
+	$: selectedFlight = flightslist.find((flight) => flight.flighthash == $selectedCard);
 
 	async function getflights() {
 		console.log(new Date(currentDate));
@@ -43,14 +49,80 @@
 		getflights();
 	}
 
-	function changeType() {
+	const channel = supabase
+		.channel('public')
+		.on(
+			'postgres_changes',
+			{
+				event: '*',
+				schema: 'public',
+				table: 'rooms'
+			},
+			(payload) => {
+				if (payload.new['flighthash'] == null || payload.new['flighthash'] == undefined) {
+					supabase
+						.from('flights')
+						.select('*, rooms(*)')
+						.eq('flighthash', payload.old['flighthash'])
+						.then((data) => {
+							let flight = data.data[0];
+							flight = converttimes(flight);
+							flightslist.forEach((flight) => {
+								if (flight.flighthash == data.data[0].flighthash) {
+									flight.rooms = data.data[0].rooms;
+									flightslist = [...flightslist];
+								}
+							});
+						});
+				} else {
+					supabase
+						.from('flights')
+						.select('*, rooms(*)')
+						.eq('flighthash', payload.new['flighthash'])
+						.then((data) => {
+							let flight = data.data[0];
+							flight = converttimes(flight);
+							flightslist.forEach((flight) => {
+								if (flight.flighthash == data.data[0].flighthash) {
+									flight.rooms = data.data[0].rooms;
+									flightslist = [...flightslist];
+								}
+							});
+						});
+				}
+			}
+		)
+		.subscribe();
+
+	async function changeType() {
 		flightslist = [];
 		if (type == 'departure') {
 			type = 'arrival';
 		} else if (type == 'arrival') {
 			type = 'departure';
 		}
-		getflights();
+		await getflights();
+		setTimeout(() => {}, 2000);
+		selectedCard.set(flightslist[0].flighthash);
+	}
+
+	function addRoom() {
+		const room = {
+			roomnumber: roomwithflightinput,
+			amount: amount,
+			flighthash: selectedFlight.flighthash,
+			planned: moment(currentDate).format('YYYY-MM-DDTHH:mm:ss')
+		};
+
+		supabase
+			.from('rooms')
+			.insert(room)
+			.select('*')
+			.then((data) => {
+				console.log(data);
+			});
+		roomwithflightinput = '';
+		amount = '1';
 	}
 </script>
 
@@ -69,14 +141,15 @@
 			<div class="withoutflights">
 				<h1>Without rooms</h1>
 			</div>
-			<input type="text" bind:value={roomwithflightinput} placeholder="Input room with flight" />
+			<form on:submit|preventDefault={addRoom} class="inputform">
+				<input type="text" bind:value={roomwithflightinput} placeholder="Input room with flight" />
+				<input type="number" bind:value={amount} placeholder="Amount" />
+				<button type="submit" class="submitbutton" style="margin-inline: auto;">Add Room</button>
+			</form>
 			<div class="withflights">
 				{#if selectedFlight != null}
 					{#each selectedFlight.rooms as room}
-						<div class="roomcontainer">
-							<button>X</button>
-							<h1>{room.roomnumber}</h1>
-						</div>
+						<Room {room} />
 					{/each}
 				{/if}
 			</div>
@@ -93,41 +166,41 @@
 </div>
 
 <style>
-	.withflights {
-		overflow-y: auto;
-		height: 500px;
-		min-width: 40%;
+	.submitbutton {
+		margin-inline: auto;
+		width: 30%;
+		padding: 20px;
+		border-radius: 10px;
+		border: none;
 	}
 
-	.roomcontainer {
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		align-items: center;
-		border: 1px solid black;
-		margin: 1em;
-		padding: 1em;
-		min-width: 40%;
+	button:hover {
+		cursor: pointer;
 	}
+
 	.halfcontainer {
 		height: 95vh;
 		width: 50vw;
-		border: 1px solid black;
+	}
+
+	.inputform {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
 	}
 
 	.flightdisplay {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
 		overflow-y: scroll;
+		gap: 1em;
+		align-items: center; /* Center the cards vertically within the grid columns */
+		justify-items: center; /* Center the cards horizontally within the grid columns */
+		padding: 20px;
 	}
 
-	.flight {
-	}
-
-	.flight:hover {
-		background-color: #185318;
-		transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.5s;
-	}
 	h1 {
 		margin-inline: auto;
 		text-align: center;
@@ -141,11 +214,10 @@
 		display: flex;
 		flex-direction: row;
 		width: 80%;
-
 		justify-content: space-between;
 		align-items: center;
 		margin-inline: auto;
-		border: 1px solid black;
+
 		padding: 1em;
 	}
 
@@ -162,10 +234,6 @@
 		transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.3s;
 	}
 
-	.datecontainer button:hover {
-		background-color: #185318;
-	}
-
 	.inputcontainer {
 		display: flex;
 		flex-direction: column;
@@ -173,7 +241,7 @@
 		justify-content: space-between;
 		align-items: center;
 		margin-inline: auto;
-		border: 1px solid black;
+
 		padding: 1em;
 		min-width: 50%;
 	}

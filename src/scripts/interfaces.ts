@@ -48,7 +48,8 @@ export interface Flight {
  * @property {string} planned - The planned time of flight
  * @property {number} amount - The amount of people in the room, default 1
  */
-interface Room {
+export interface Room {
+    id: string;
     roomnumber: string;
     flighthash: string;
     planned: string | null;
