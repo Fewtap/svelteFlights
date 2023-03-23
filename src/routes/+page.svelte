@@ -7,6 +7,11 @@
 	import { converttimes } from '../scripts/flightutils';
 
 	let flightslist: Flight[] = [];
+	let currenttime = gettime();
+
+	setInterval(() => {
+		currenttime = gettime();
+	}, 1000);
 
 	onMount(async () => {
 		let startofday = moment().startOf('day').format('YYYY-MM-DDTHH:mm:ss');
@@ -31,6 +36,10 @@
 
 		flightslist = flightslist;
 	});
+
+	function gettime() {
+		return moment().format('HH:mm:ss');
+	}
 </script>
 
 <div class="outercontainer">
@@ -38,6 +47,7 @@
 		<img
 			src="https://static.wixstatic.com/media/015531_11331bde76244c9db30c799c6b22fc00~mv2.png/v1/fill/w_363,h_127,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Hotel%20Ilulissat%20Logo%20-SORTSKRIFT.png"
 		/>
+		<h1>{currenttime}</h1>
 	</div>
 	<div class="container">
 		{#each flightslist as flight}
@@ -62,7 +72,9 @@
 		.imgcontainer {
 			display: flex;
 			justify-content: center;
+			gap: 5em;
 			margin: 1em;
+			font-size: 2em;
 		}
 
 		.imgcontainer img {

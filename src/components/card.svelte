@@ -7,6 +7,23 @@
 	export let flight: Flight;
 	let selected = false;
 
+	const English = {
+		destination: 'Destination',
+		origin: 'Origin',
+		planned: 'Planned',
+		estimated: 'Estimated',
+		busdeparture: 'Bus Departure'
+	};
+	const Danish = {
+		destination: 'Destination',
+		origin: 'Oprindelse',
+		planned: 'Planlagt',
+		estimated: 'Anslået',
+		busdeparture: 'Busafgang'
+	};
+
+	let language = Danish;
+
 	// create a writable store to keep track of the selected card
 
 	function handleclick() {
@@ -18,36 +35,65 @@
 		if (value == flight.flighthash) selected = true;
 		else selected = false;
 	});
+
+	const route = document.location.pathname;
+	console.log(route);
+
+	//if the flight is delayed or cancelled create a object with greenlandic and danish text and alternate between it every 2 seconds
+	if (flight.delayed || flight.cancelled) {
+		let en = flight.delayed ? 'Delayed' : 'Cancelled';
+		let da = flight.delayed ? 'Forsinket' : 'Aflyst';
+		let i = 0;
+		setInterval(() => {
+			flight.en = i % 2 == 0 ? en : da;
+			i++;
+		}, 10 * 1000);
+	}
+
+	//a function that will alternate between the english and danish text every 2 seconds
+	function toggle() {
+		let en = flight.delayed ? 'Delayed' : 'Cancelled';
+		let da = flight.delayed ? 'Forsinket' : 'Aflyst';
+		let i = 0;
+		setInterval(() => {
+			flight.en = i % 2 == 0 ? en : da;
+			i++;
+		}, 10 * 1000);
+
+		//toggle the language object
+		language = language == English ? Danish : English;
+		console.log(language);
+	}
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
+
 <div on:click={handleclick} class:selected class="card" transition:fade id={flight.flighthash}>
 	<h2>{flight.rute}</h2>
 	<div class="seperator" />
 	{#if flight.type == 'departure'}
-		<h3>Destination: {flight.arrivalairport}</h3>
+		<h3>{language.destination}: {flight.arrivalairport}</h3>
 	{:else if flight.type == 'arrival'}
 		<h3>Origin: {flight.departureairport}</h3>
 	{/if}
 
-	<h3>Planned: {moment(flight.planned).format('HH:mm')}</h3>
+	<h3>{language.planned}: {moment(flight.planned).format('HH:mm')}</h3>
 
-	<h3>Bus Departure: {moment(flight.busdeparture).format('HH:mm')}</h3>
+	<h3>{language.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
 
 	{#if flight.estimated}
-		<h3>Estimated: {moment(flight.estimated).format('HH:mm')}</h3>
+		<h3>{language.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
 	{/if}
 	{#if flight.cancelled || flight.cancelled || moment(flight.planned) < moment()}
 		<div
 			class="badge"
 			class:delayed={flight.delayed}
 			class:cancelled={flight.cancelled}
-			class:departed={() => {
-				if (moment(flight.planned) < moment() && !flight.cancelled && !flight.delayed) return true;
-				else return false;
-			}}
+			transition:fade
 		>
-			{flight.en}
+			{#key flight.en}
+				<h5 in:fade={{ delay: 200 }}>{flight.en}</h5>
+			{/key}
 		</div>
 	{/if}
 </div>
@@ -74,6 +120,13 @@
 		cursor: pointer;
 	}
 
+	h5 {
+		font-size: 1.2em;
+		margin: 5px;
+		font-weight: lighter;
+		color: white;
+	}
+
 	h3 {
 		font-size: 1.5em;
 	}
@@ -90,13 +143,20 @@
 	.badge {
 		border-radius: 50px;
 		color: black;
-
+		min-width: 150px;
 		padding: 10px;
 		font-size: 2em;
-		width: fit-content;
+		max-width: 150px;
+		height: 50px;
+		text-align: center;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 10px;
 		position: absolute; /* Position the badge within the relatively positioned button */
-		top: -10px;
-		right: -10px;
+		top: -20px;
+		right: -50px;
+		font-size: 30px;
 	}
 
 	.cancelled {
