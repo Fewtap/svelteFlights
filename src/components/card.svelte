@@ -3,6 +3,7 @@
 	import moment from 'moment';
 	import { fade, slide } from 'svelte/transition';
 	import { selectedCard } from '../scripts/stores';
+	import { writable } from 'svelte/store';
 
 	export let flight: Flight;
 	let selected = false;
@@ -27,7 +28,9 @@
 	// create a writable store to keep track of the selected card
 
 	function handleclick() {
-		selectedCard.set(flight.flighthash);
+		if (document.location.pathname == '/rooms') {
+			selectedCard.set(flight.flighthash);
+		}
 	}
 
 	// subscribe to the store and update the selected variable
@@ -37,32 +40,33 @@
 	});
 
 	const route = document.location.pathname;
-	console.log(route);
 
-	//if the flight is delayed or cancelled create a object with greenlandic and danish text and alternate between it every 2 seconds
-	if (flight.delayed || flight.cancelled) {
-		let en = flight.delayed ? 'Delayed' : 'Cancelled';
-		let da = flight.delayed ? 'Forsinket' : 'Aflyst';
-		let i = 0;
-		setInterval(() => {
-			flight.en = i % 2 == 0 ? en : da;
-			i++;
-		}, 10 * 1000);
+	$: if (route == '/') {
+		toggle();
 	}
+
+	const languageStore = writable(Danish);
+	const flightStatus = writable('');
 
 	//a function that will alternate between the english and danish text every 2 seconds
 	function toggle() {
-		let en = flight.delayed ? 'Delayed' : 'Cancelled';
-		let da = flight.delayed ? 'Forsinket' : 'Aflyst';
+		let en = '';
+		let da = '';
+		if (flight.delayed || flight.cancelled) {
+			en = flight.delayed ? 'Delayed' : 'Cancelled';
+			da = flight.delayed ? 'Forsinket' : 'Aflyst';
+		}
+
 		let i = 0;
 		setInterval(() => {
-			flight.en = i % 2 == 0 ? en : da;
+			flightStatus.set(i % 2 === 0 ? en : da);
 			i++;
+			// Update the language store
+			languageStore.set(language === English ? Danish : English);
+			language = language === English ? Danish : English;
 		}, 10 * 1000);
 
 		//toggle the language object
-		language = language == English ? Danish : English;
-		console.log(language);
 	}
 </script>
 
@@ -72,27 +76,29 @@
 	<h2>{flight.rute}</h2>
 	<div class="seperator" />
 	{#if flight.type == 'departure'}
-		<h3>{language.destination}: {flight.arrivalairport}</h3>
+		<h3>{$languageStore.destination}: {flight.arrivalairport}</h3>
 	{:else if flight.type == 'arrival'}
-		<h3>Origin: {flight.departureairport}</h3>
+		<h3>{$languageStore.origin}: {flight.departureairport}</h3>
 	{/if}
 
-	<h3>{language.planned}: {moment(flight.planned).format('HH:mm')}</h3>
+	<h3 in:fade={{ duration: 200 }}>
+		{$languageStore.planned}: {moment(flight.planned).format('HH:mm')}
+	</h3>
 
-	<h3>{language.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
+	<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
 
 	{#if flight.estimated}
-		<h3>{language.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
+		<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
 	{/if}
-	{#if flight.cancelled || flight.cancelled || moment(flight.planned) < moment()}
+	{#if flight.cancelled || flight.delayed || moment(flight.planned) < moment()}
 		<div
 			class="badge"
 			class:delayed={flight.delayed}
 			class:cancelled={flight.cancelled}
 			transition:fade
 		>
-			{#key flight.en}
-				<h5 in:fade={{ delay: 200 }}>{flight.en}</h5>
+			{#key $flightStatus}
+				<h5 in:fade={{ delay: 200 }}>{$flightStatus}</h5>
 			{/key}
 		</div>
 	{/if}
