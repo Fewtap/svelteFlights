@@ -4,6 +4,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { selectedCard } from '../scripts/stores';
 	import { writable } from 'svelte/store';
+	import { onMount } from 'svelte';
 
 	export let flight: Flight;
 	let selected = false;
@@ -13,15 +14,31 @@
 		origin: 'Origin',
 		planned: 'Planned',
 		estimated: 'Estimated',
-		busdeparture: 'Bus Departure'
+		busdeparture: 'Bus Departure',
+		departed: 'Bus has departed'
 	};
 	const Danish = {
 		destination: 'Destination',
 		origin: 'Oprindelse',
 		planned: 'Planlagt',
 		estimated: 'Anslået',
-		busdeparture: 'Busafgang'
+		busdeparture: 'Busafgang',
+		departed: 'Bus er afgået'
 	};
+
+	let bushasdeparted = false;
+
+	setInterval(() => {
+		if (moment(flight.busdeparture).isBefore(moment())) {
+			bushasdeparted = true;
+		}
+	}, 1000);
+
+	onMount(() => {
+		if (moment(flight.busdeparture).isBefore(moment())) {
+			bushasdeparted = true;
+		}
+	});
 
 	let language = Danish;
 
@@ -73,7 +90,14 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 
-<div on:click={handleclick} class:selected class="card" transition:fade id={flight.flighthash}>
+<div
+	on:click={handleclick}
+	class:selected
+	class="card"
+	transition:fade
+	id={flight.flighthash}
+	class:departed={bushasdeparted}
+>
 	<h2>{flight.rute}</h2>
 	<div class="seperator" />
 	{#if flight.type == 'departure'}
@@ -81,29 +105,32 @@
 	{:else if flight.type == 'arrival'}
 		<h3>{$languageStore.origin}: {flight.departureairport}</h3>
 	{/if}
+	{#if !bushasdeparted}
+		<h3 in:fade={{ duration: 200 }}>
+			{$languageStore.planned}: {moment(flight.planned).format('HH:mm')}
+		</h3>
 
-	<h3 in:fade={{ duration: 200 }}>
-		{$languageStore.planned}: {moment(flight.planned).format('HH:mm')}
-	</h3>
+		<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
 
-	<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
-
-	{#key flight.estimated}
-		{#if flight.estimated}
-			<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
+		{#key flight.estimated}
+			{#if flight.estimated}
+				<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
+			{/if}
+		{/key}
+		{#if flight.cancelled || flight.delayed}
+			<div
+				class="badge"
+				class:delayed={flight.delayed}
+				class:cancelled={flight.cancelled}
+				transition:fade
+			>
+				{#key $flightStatus}
+					<h5>{$flightStatus}</h5>
+				{/key}
+			</div>
 		{/if}
-	{/key}
-	{#if flight.cancelled || flight.delayed || moment(flight.planned) < moment()}
-		<div
-			class="badge"
-			class:delayed={flight.delayed}
-			class:cancelled={flight.cancelled}
-			transition:fade
-		>
-			{#key $flightStatus}
-				<h5>{$flightStatus}</h5>
-			{/key}
-		</div>
+	{:else}
+		<h3>{$languageStore.departed}</h3>
 	{/if}
 </div>
 
@@ -177,7 +204,8 @@
 	}
 
 	.departed {
-		background-color: #00ff00;
+		background-color: #0f350f;
+		transition: ease-in 0.5s;
 	}
 
 	.seperator {
