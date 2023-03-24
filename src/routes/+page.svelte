@@ -4,41 +4,47 @@
 	import { onMount } from 'svelte';
 	import type { Flight } from '../scripts/interfaces';
 	import Card from '../components/card.svelte';
-	import { converttimes } from '../scripts/flightutils';
+	import { converttimes, gettime, fetchFlights } from '../scripts/flightutils';
 
 	let flightslist: Flight[] = [];
-	let currenttime = gettime();
+	let currenttime = moment();
 
 	setInterval(() => {
-		currenttime = gettime();
+		currenttime = gettime(flightslist);
 	}, 1000);
 
 	onMount(async () => {
-		let startofday = moment().startOf('day').format('YYYY-MM-DDTHH:mm:ss');
-		let endofday = moment().endOf('day').format('YYYY-MM-DDTHH:mm:ss');
-
-		let { data, error } = await supabase
-			.from('flights')
-			.select('*')
-			.gte('planned', startofday)
-			.lte('planned', endofday)
-			.eq('type', 'departure')
-			.order('planned', { ascending: true });
-
-		let flights = data as Flight[];
-
-		for (let i = 0; i < flights.length; i++) {
-			let flight: Flight = flights[i] as Flight;
-			flight = converttimes(flight);
-
-			flightslist.push(flight);
-		}
-
-		flightslist = flightslist;
+		flightslist = (await fetchFlights(
+			supabase,
+			moment().format('YYYY-MM-DD'),
+			'departure'
+		)) as Flight[];
+		supabase
+			.channel('custom-all-channel')
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, (payload) => {
+				updateflights(payload);
+			})
+			.subscribe();
 	});
 
-	function gettime() {
-		return moment().format('HH:mm:ss');
+	function updateflights(payload: any) {
+		console.log(payload);
+		let flight = payload.new as Flight;
+		flight = converttimes(flight);
+
+		//if the flight is today and is a departure
+		if (moment(flight.planned).isSame(moment(currenttime), 'day') && flight.type == 'departure') {
+			//if the flight is already in the list
+			if (flightslist.some((f) => f.flighthash == flight.flighthash)) {
+				//update the flight
+				flightslist = flightslist.map((f) => (f.flighthash == flight.flighthash ? flight : f));
+			} else {
+				//add the flight
+				flightslist.push(flight);
+			}
+
+			flightslist = flightslist;
+		}
 	}
 </script>
 
@@ -47,7 +53,7 @@
 		<img
 			src="https://static.wixstatic.com/media/015531_11331bde76244c9db30c799c6b22fc00~mv2.png/v1/fill/w_363,h_127,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Hotel%20Ilulissat%20Logo%20-SORTSKRIFT.png"
 		/>
-		<h1>{currenttime}</h1>
+		<h1>{currenttime.format('HH:mm:ss')}</h1>
 	</div>
 	<div class="container">
 		{#each flightslist as flight}
@@ -64,7 +70,7 @@
 		height: fit-content;
 		gap: 2rem;
 		padding: 10px;
-
+		overflow-x: hidden;
 		justify-items: center;
 	}
 

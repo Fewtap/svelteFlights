@@ -55,6 +55,7 @@
 		if (flight.delayed || flight.cancelled) {
 			en = flight.delayed ? 'Delayed' : 'Cancelled';
 			da = flight.delayed ? 'Forsinket' : 'Aflyst';
+			console.log(en, da);
 		}
 
 		let i = 0;
@@ -87,9 +88,11 @@
 
 	<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
 
-	{#if flight.estimated}
-		<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
-	{/if}
+	{#key flight.estimated}
+		{#if flight.estimated}
+			<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
+		{/if}
+	{/key}
 	{#if flight.cancelled || flight.delayed || moment(flight.planned) < moment()}
 		<div
 			class="badge"
@@ -98,7 +101,7 @@
 			transition:fade
 		>
 			{#key $flightStatus}
-				<h5 in:fade={{ delay: 200 }}>{$flightStatus}</h5>
+				<h5>{$flightStatus}</h5>
 			{/key}
 		</div>
 	{/if}
@@ -170,7 +173,7 @@
 	}
 
 	.delayed {
-		background-color: #e1ff00;
+		background-color: #99a824;
 	}
 
 	.departed {

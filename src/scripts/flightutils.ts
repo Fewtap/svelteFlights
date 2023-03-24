@@ -1,3 +1,5 @@
+/* eslint-disable no-self-assign */
+/* eslint-disable prefer-const */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import moment from 'moment';
 import { element } from 'svelte/internal';
@@ -38,6 +40,10 @@ export async function fetchFlights( supabase: SupabaseClient,date: string, type:
 		return Promise.reject(error);
 	}
 	else{
+		//conver the times
+		for (let i = 0; i < data.length; i++) {
+			data[i] = converttimes(data[i]);
+		}
 		return Promise.resolve(data);
 	}
 }
@@ -131,3 +137,24 @@ function getTimeSpan(date: string): { start: moment.Moment; end: moment.Moment; 
 		end: endofDay
 	}
 }
+
+export function gettime(flightslist: Flight[] ) {
+		const time = moment();
+
+		//if it's a new day, fetch new flights
+		if (time.hour() == 0 && time.minute() == 0 && time.second() == 0) {
+			flightslist = [];
+			fetchFlights(supabase, moment().format('YYYY-MM-DD'), 'departure').then((flights) => {
+				for (let i = 0; i < flights.length; i++) {
+					converttimes(flights[i]);
+					flightslist.push(flights[i]);
+				}
+			});
+
+		}
+
+		return time;
+	}
+
+
+
