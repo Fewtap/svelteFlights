@@ -20,7 +20,7 @@
  * @property {boolean} cancelled - Whether the flight is cancelled or not
  * @property {Room[]} rooms - The rooms in the flight
  */
-export interface Flight {
+export interface IFlight {
     actual: string | null;
     arrivalairport: string;
     arrivalicao: string;
@@ -29,10 +29,10 @@ export interface Flight {
     departureicao: string;
     en: string;
     estimated: string | null;
-    flighthash: string;
+    flighthash: string | null;
     kl: string;
     planned: string;
-    rooms: Room[] | null; // Replace with a more specific type if possible
+    rooms: IRoom[] | null; // Replace with a more specific type if possible
     rute: string;
     type: string;
     busdeparture: string | null;
@@ -48,7 +48,7 @@ export interface Flight {
  * @property {string} planned - The planned time of flight
  * @property {number} amount - The amount of people in the room, default 1
  */
-export interface Room {
+export interface IRoom {
     id: string;
     roomnumber: string;
     flighthash: string;
