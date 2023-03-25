@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Flight } from '../scripts/interfaces';
+	import type { IFlight } from '../scripts/interfaces';
 	import moment from 'moment';
 	import { fade, slide } from 'svelte/transition';
 	import { selectedCard } from '../scripts/stores';
 	import { writable } from 'svelte/store';
 	import { onMount } from 'svelte';
 
-	export let flight: Flight;
+	export let flight: IFlight;
 	let selected = false;
 
 	const English = {
@@ -99,6 +99,7 @@
 	class:departed={bushasdeparted}
 >
 	<h2>{flight.rute}</h2>
+
 	<div class="seperator" />
 	{#if flight.type == 'departure'}
 		<h3>{$languageStore.destination}: {flight.arrivalairport}</h3>

@@ -58,6 +58,8 @@ export async function fetchFlights( supabase: SupabaseClient,date: string, type:
  * 
  */
 export function converttimes(flight: Flight) {
+		//print the stack trace
+		console.trace();
 		flight.cancelled = false;
 		flight.planned = moment(flight.planned).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
 		if (flight.estimated)

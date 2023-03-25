@@ -1,43 +1,79 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { fetchFlights } from '../../scripts/flightutils';
 	import { createClient } from '@supabase/supabase-js';
-	import type { Flight, flighttype } from '../../scripts/interfaces';
+	import type { IFlight, flighttype, IRoom } from '../../scripts/interfaces';
 	import { converttimes } from '../../scripts/flightutils';
 	import Card from '../../components/card.svelte';
 	import supabase from '../../scripts/supabase';
-	import { selectedCard } from '../../scripts/stores';
+	import { selectedCard, flights, roomswithoutflight, typestore } from '../../scripts/stores';
 	import moment from 'moment';
 	import Room from '../../components/room.svelte';
 
 	let currentDate = moment().format('YYYY-MM-DD');
 	console.log(currentDate);
 	let selectedFlight: any = null;
+	let type = '';
 
-	let type: string = 'departure';
 	let roomwithflightinput = '';
-	let amount = '1';
+	let roomwithflightamount = '1';
 
-	let flightslist: Flight[] = [];
+	let roomwithoutflightinput = '';
+	let roomwithoutflightamount = '1';
+
+	let roomswithoutflightlist: IRoom[] = [];
+	let flightslist: IFlight[] = [];
+
+	flights.subscribe((value) => {
+		flightslist = value;
+	});
+
+	roomswithoutflight.subscribe((value) => {
+		roomswithoutflightlist = value;
+	});
+
+	typestore.subscribe(async (value) => {
+		type = value;
+		let start = moment(currentDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+		let end = moment(currentDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+		let temp = await supabase
+			.from('rooms')
+			.select('*')
+			.gte('planned', start)
+			.lte('planned', end)
+			.eq('flighthash', null);
+	});
 
 	onMount(async () => {
+		getroomswithoutrooms(currentDate);
 		await getflights();
-
 		selectedCard.set(flightslist[0].flighthash);
 	});
+
+	function getroomswithoutrooms(date: string) {
+		let start = moment(date).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+		let end = moment(date).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+		console.log(start, end);
+		supabase
+			.from('rooms')
+			.select('*')
+			.gte('planned', start)
+			.lte('planned', end)
+			.eq('type', type)
+			.select('*')
+			.then((data) => {
+				console.log(data);
+				roomswithoutflight.set(data.data);
+			});
+	}
 
 	$: selectedFlight = flightslist.find((flight) => flight.flighthash == $selectedCard);
 
 	async function getflights() {
-		console.log(new Date(currentDate));
-		flightslist = [];
-		flightslist = (await fetchFlights(supabase, currentDate, type)) as Flight[];
-		flightslist.forEach((flight) => {
-			flight = converttimes(flight);
-		});
-		flightslist = flightslist;
-		console.log(flightslist.length);
+		let templist = (await fetchFlights(supabase, currentDate, type)) as IFlight[];
+
+		flights.set(templist);
 	}
 
 	function changeDate(datechange: string) {
@@ -59,36 +95,16 @@
 				table: 'rooms'
 			},
 			(payload) => {
-				if (payload.new['flighthash'] == null || payload.new['flighthash'] == undefined) {
-					supabase
-						.from('flights')
-						.select('*, rooms(*)')
-						.eq('flighthash', payload.old['flighthash'])
-						.then((data) => {
-							let flight = data.data[0];
-							flight = converttimes(flight);
-							flightslist.forEach((flight) => {
-								if (flight.flighthash == data.data[0].flighthash) {
-									flight.rooms = data.data[0].rooms;
-									flightslist = [...flightslist];
-								}
-							});
-						});
-				} else {
-					supabase
-						.from('flights')
-						.select('*, rooms(*)')
-						.eq('flighthash', payload.new['flighthash'])
-						.then((data) => {
-							let flight = data.data[0];
-							flight = converttimes(flight);
-							flightslist.forEach((flight) => {
-								if (flight.flighthash == data.data[0].flighthash) {
-									flight.rooms = data.data[0].rooms;
-									flightslist = [...flightslist];
-								}
-							});
-						});
+				switch (payload.eventType) {
+					case 'INSERT':
+						updatesingleFlight(payload.new.flighthash);
+						break;
+					case 'UPDATE':
+						getflights();
+						break;
+					case 'DELETE':
+						updatesingleFlight(payload.old.flighthash);
+						break;
 				}
 			}
 		)
@@ -97,32 +113,65 @@
 	async function changeType() {
 		flightslist = [];
 		if (type == 'departure') {
-			type = 'arrival';
+			typestore.set('arrival');
 		} else if (type == 'arrival') {
-			type = 'departure';
+			typestore.set('departure');
 		}
 		await getflights();
+		getroomswithoutrooms(currentDate);
+
 		setTimeout(() => {}, 2000);
 		selectedCard.set(flightslist[0].flighthash);
 	}
 
-	function addRoom() {
+	function addRoom(hasflight: boolean) {
 		const room = {
-			roomnumber: roomwithflightinput,
-			amount: amount,
-			flighthash: selectedFlight.flighthash,
-			planned: moment(currentDate).format('YYYY-MM-DDTHH:mm:ss')
+			roomnumber: '',
+			amount: '',
+			planned: moment(currentDate).format('YYYY-MM-DDTHH:mm:ss'),
+			flighthash: null,
+			type: ''
 		};
+
+		if (hasflight) {
+			room.roomnumber = roomwithflightinput;
+			room.amount = roomwithflightamount;
+			room.flighthash = selectedFlight.flighthash;
+			selectedFlight.rooms.push(room);
+			selectedFlight = selectedFlight;
+			roomwithflightinput = '';
+			roomwithflightamount = '1';
+		} else {
+			room.roomnumber = roomwithoutflightinput;
+			room.amount = roomwithoutflightamount;
+			room.flighthash = null;
+			room.type = type;
+			roomswithoutflightlist.push(room);
+			roomswithoutflight.set(roomswithoutflightlist);
+			roomwithoutflightinput = '';
+			roomwithoutflightamount = '1';
+		}
 
 		supabase
 			.from('rooms')
 			.insert(room)
-			.select('*')
 			.then((data) => {
-				console.log(data);
+				getroomswithoutrooms(currentDate);
 			});
-		roomwithflightinput = '';
-		amount = '1';
+	}
+
+	function updatesingleFlight(flighthash: string) {
+		supabase
+			.from('flights')
+			.select('*, rooms(*)')
+			.eq('flighthash', flighthash)
+			.then((data) => {
+				const newflight = data.data[0] as IFlight;
+
+				const index = flightslist.findIndex((flight) => flight.flighthash == flighthash);
+				flightslist[index] = newflight;
+				flights.set(flightslist);
+			});
 	}
 </script>
 
@@ -137,13 +186,25 @@
 		</div>
 
 		<div class="inputcontainer">
-			<input type="text" placeholder="Input room without flight" />
+			<form on:submit|preventDefault={() => addRoom(false)} class="inputform">
+				<input
+					type="text"
+					bind:value={roomwithoutflightinput}
+					placeholder="Input room without flight"
+				/>
+				<input type="number" bind:value={roomwithoutflightamount} placeholder="Amount" />
+				<button type="submit" class="submitbutton" style="margin-inline: auto;">Add Room</button>
+			</form>
 			<div class="withoutflights">
-				<h1>Without rooms</h1>
+				{#if selectedFlight != null}
+					{#each roomswithoutflightlist as room}
+						<Room {room} />
+					{/each}
+				{/if}
 			</div>
-			<form on:submit|preventDefault={addRoom} class="inputform">
+			<form on:submit|preventDefault={() => addRoom(true)} class="inputform">
 				<input type="text" bind:value={roomwithflightinput} placeholder="Input room with flight" />
-				<input type="number" bind:value={amount} placeholder="Amount" />
+				<input type="number" bind:value={roomwithflightamount} placeholder="Amount" />
 				<button type="submit" class="submitbutton" style="margin-inline: auto;">Add Room</button>
 			</form>
 			<div class="withflights">
@@ -253,6 +314,7 @@
 		border: none;
 		background-color: #f7f7f7;
 		margin: 1em;
+		padding: 1em;
 	}
 
 	.container {
