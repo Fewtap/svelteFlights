@@ -1,13 +1,23 @@
 <script lang="ts">
-	import type { IFlight } from '../scripts/interfaces';
+	import type { IFlight, IRoom } from '../scripts/interfaces';
 	import moment from 'moment';
 	import { fade, slide } from 'svelte/transition';
-	import { selectedCard } from '../scripts/stores';
-	import { writable } from 'svelte/store';
+	import { selectedCard, flights } from '../scripts/stores';
+	import { writable, type Writable } from 'svelte/store';
 	import { onMount } from 'svelte';
 
 	export let flight: IFlight;
 	let selected = false;
+
+	flights.subscribe((value) => {
+		console.log(value);
+	});
+
+	$: {
+		if (flight && flight.rooms) {
+			amountOfPeople = getAmountOfPeople();
+		}
+	}
 
 	const English = {
 		destination: 'Destination',
@@ -27,6 +37,29 @@
 	};
 
 	let bushasdeparted = false;
+	function getAmountOfPeople() {
+		let amountOfPeople = 0;
+		if (!flight.rooms) return 0;
+		flight.rooms.forEach((room) => {
+			amountOfPeople += Number(room.amount);
+		});
+		return amountOfPeople;
+	}
+
+	let amountOfPeople = getAmountOfPeople();
+
+	// Reactive statement to call getAmountOfPeople whenever flight changes
+	$: {
+		amountOfPeople = getAmountOfPeople();
+	}
+
+	function getamountofpeople() {
+		amountOfPeople = 0;
+		if (!flight.rooms) return 0;
+		flight.rooms.forEach((room) => {
+			amountOfPeople += Number(room.amount);
+		});
+	}
 
 	setInterval(() => {
 		if (moment(flight.busdeparture).isBefore(moment())) {
@@ -38,6 +71,8 @@
 		if (moment(flight.busdeparture).isBefore(moment())) {
 			bushasdeparted = true;
 		}
+
+		getamountofpeople();
 	});
 
 	let language = Danish;
@@ -99,6 +134,11 @@
 	class:departed={bushasdeparted}
 >
 	<h2>{flight.rute}</h2>
+	{#key flight.rooms}
+		{#if amountOfPeople > 0}
+			<h3>Amount: {amountOfPeople}</h3>
+		{/if}
+	{/key}
 
 	<div class="seperator" />
 	{#if flight.type == 'departure'}
@@ -110,15 +150,15 @@
 		<h3 in:fade={{ duration: 200 }}>
 			{$languageStore.planned}: {moment(flight.planned).format('HH:mm')}
 		</h3>
-
-		<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
-
+		{#if flight.type == 'departure'}
+			<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
+		{/if}
 		{#key flight.estimated}
 			{#if flight.estimated}
 				<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
 			{/if}
 		{/key}
-		{#if flight.cancelled || flight.delayed}
+		{#if (flight.cancelled && $flightStatus) || (flight.delayed && $flightStatus)}
 			<div
 				class="badge"
 				class:delayed={flight.delayed}

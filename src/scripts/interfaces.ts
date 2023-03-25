@@ -49,11 +49,12 @@ export interface IFlight {
  * @property {number} amount - The amount of people in the room, default 1
  */
 export interface IRoom {
-    id: string;
-    roomnumber: string;
-    flighthash: string;
+    id: string | undefined;
+    roomnumber: string | null;
+    flighthash: string | null;
     planned: string | null;
-    amount: number | 1;
+    amount: string | 1;
+    type: string | null;
 }
 
 export interface flighttype {

@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
-	import { fetchFlights } from '../../scripts/flightutils';
-	import { createClient } from '@supabase/supabase-js';
+	import { fetchFlights, converttimes } from '../../scripts/flightutils';
+
 	import type { IFlight, flighttype, IRoom } from '../../scripts/interfaces';
-	import { converttimes } from '../../scripts/flightutils';
+
 	import Card from '../../components/card.svelte';
-	import supabase from '../../scripts/supabase';
+	import supabaseutil from '../../scripts/supabaseutil';
 	import { selectedCard, flights, roomswithoutflight, typestore } from '../../scripts/stores';
 	import moment from 'moment';
 	import Room from '../../components/room.svelte';
@@ -37,7 +36,7 @@
 		type = value;
 		let start = moment(currentDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
 		let end = moment(currentDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
-		let temp = await supabase
+		let temp = await supabaseutil
 			.from('rooms')
 			.select('*')
 			.gte('planned', start)
@@ -55,7 +54,7 @@
 		let start = moment(date).startOf('day').format('YYYY-MM-DD HH:mm:ss');
 		let end = moment(date).endOf('day').format('YYYY-MM-DD HH:mm:ss');
 		console.log(start, end);
-		supabase
+		supabaseutil
 			.from('rooms')
 			.select('*')
 			.gte('planned', start)
@@ -63,15 +62,14 @@
 			.eq('type', type)
 			.select('*')
 			.then((data) => {
-				console.log(data);
-				roomswithoutflight.set(data.data);
+				roomswithoutflight.set(data.data as IRoom[]);
 			});
 	}
 
 	$: selectedFlight = flightslist.find((flight) => flight.flighthash == $selectedCard);
 
 	async function getflights() {
-		let templist = (await fetchFlights(supabase, currentDate, type)) as IFlight[];
+		let templist = (await fetchFlights(supabaseutil, currentDate, type)) as IFlight[];
 
 		flights.set(templist);
 	}
@@ -85,7 +83,7 @@
 		getflights();
 	}
 
-	const channel = supabase
+	const channel = supabaseutil
 		.channel('public')
 		.on(
 			'postgres_changes',
@@ -125,12 +123,13 @@
 	}
 
 	function addRoom(hasflight: boolean) {
-		const room = {
+		let room: IRoom = {
+			id: undefined,
 			roomnumber: '',
-			amount: '',
-			planned: moment(currentDate).format('YYYY-MM-DDTHH:mm:ss'),
+			amount: '1',
 			flighthash: null,
-			type: ''
+			planned: moment(currentDate).format('YYYY-MM-DD HH:mm:ss'),
+			type: null
 		};
 
 		if (hasflight) {
@@ -141,6 +140,7 @@
 			selectedFlight = selectedFlight;
 			roomwithflightinput = '';
 			roomwithflightamount = '1';
+			updatesingleFlight(selectedFlight.flighthash);
 		} else {
 			room.roomnumber = roomwithoutflightinput;
 			room.amount = roomwithoutflightamount;
@@ -152,21 +152,24 @@
 			roomwithoutflightamount = '1';
 		}
 
-		supabase
+		supabaseutil
 			.from('rooms')
 			.insert(room)
 			.then((data) => {
-				getroomswithoutrooms(currentDate);
+				if (room.flighthash != null) updatesingleFlight(room.flighthash);
+				else getroomswithoutrooms(currentDate);
 			});
 	}
 
 	function updatesingleFlight(flighthash: string) {
-		supabase
+		supabaseutil
 			.from('flights')
 			.select('*, rooms(*)')
 			.eq('flighthash', flighthash)
 			.then((data) => {
-				const newflight = data.data[0] as IFlight;
+				if (data.data == null) return;
+				let newflight = data.data[0] as IFlight;
+				newflight = converttimes(newflight);
 
 				const index = flightslist.findIndex((flight) => flight.flighthash == flighthash);
 				flightslist[index] = newflight;

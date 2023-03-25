@@ -1,5 +1,5 @@
 <script lang="ts">
-	import supabase from '../scripts/supabase';
+	import supabaseutil from '../scripts/supabaseutil';
 	import type { IRoom, IFlight } from '../scripts/interfaces';
 	import { fade } from 'svelte/transition';
 	import { flights, selectedCard, typestore, roomswithoutflight } from '../scripts/stores';
@@ -28,8 +28,9 @@
 
 	async function deleteRoom(room: IRoom) {
 		if (room.flighthash == null) {
-			const { data, error } = await supabase.from('rooms').delete().eq('id', room.id);
 			let roomsleft = roomswithoutflightlist.filter((roominlist) => room.id != roominlist.id);
+			const { data, error } = await supabaseutil.from('rooms').delete().eq('id', room.id);
+
 			roomswithoutflight.set(roomsleft);
 			return;
 		} else {
@@ -39,7 +40,7 @@
 			flightslist[index].rooms = flightslist[index].rooms.filter((room) => room.id != room.id);
 			flights.set(flightslist);
 
-			const { data, error } = await supabase.from('rooms').delete().eq('id', room.id);
+			const { data, error } = await supabaseutil.from('rooms').delete().eq('id', room.id);
 		}
 	}
 </script>

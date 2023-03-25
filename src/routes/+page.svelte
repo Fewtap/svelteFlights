@@ -1,6 +1,6 @@
 <script lang="ts">
 	import moment from 'moment';
-	import supabase from '../scripts/supabase';
+	import supabaseutil from '../scripts/supabaseutil';
 	import { onMount } from 'svelte';
 	import type { IFlight } from '../scripts/interfaces';
 	import Card from '../components/card.svelte';
@@ -20,14 +20,14 @@
 
 	onMount(async () => {
 		const templist = (await fetchFlights(
-			supabase,
+			supabaseutil,
 			currenttime.format('YYYY-MM-DD'),
 			'departure'
 		)) as IFlight[];
 
 		flights.set(templist);
 
-		supabase
+		supabaseutil
 			.channel('custom-all-channel')
 			.on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, (payload) => {
 				updateflights(payload);
@@ -60,6 +60,7 @@
 	<div class="imgcontainer">
 		<img
 			src="https://static.wixstatic.com/media/015531_11331bde76244c9db30c799c6b22fc00~mv2.png/v1/fill/w_363,h_127,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Hotel%20Ilulissat%20Logo%20-SORTSKRIFT.png"
+			alt="logo"
 		/>
 		<h1>{currenttime.format('HH:mm:ss')}</h1>
 	</div>
