@@ -1,6 +1,6 @@
 // src/lib/login.ts
 
-import supabase from '../../scripts/supabase'
+import supabase from '../../scripts/supabaseutil'
 
 
 async function login(email:string, password:string) {

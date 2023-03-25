@@ -2,7 +2,7 @@
 /* eslint-disable prefer-const */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import moment from 'moment';
-import { element } from 'svelte/internal';
+
 import type { IFlight} from './interfaces';
 import { flights } from './stores';
 
@@ -26,8 +26,7 @@ const supabase = createClient(
 export async function fetchFlights( supabase: SupabaseClient,date: string, type: string){
 
 	const { start, end } = getTimeSpan(date);
-	console.log(start.format('YYYY-MM-DDTHH:mm:ss'));
-	console.log(end.format('YYYY-MM-DDTHH:mm:ss'));
+	
 
 	const { data, error } = await supabase
 			.from('flights')
@@ -41,9 +40,10 @@ export async function fetchFlights( supabase: SupabaseClient,date: string, type:
 		return Promise.reject(error);
 	}
 	else{
-		//conver the times
+		if(data == null) return Promise.resolve([]);
 		for (let i = 0; i < data.length; i++) {
-			data[i] = converttimes(data[i]);
+			
+			data[i] = converttimes(data[i] as IFlight);
 		}
 		return Promise.resolve(data);
 	}
@@ -107,7 +107,7 @@ export function converttimes(flight: IFlight) {
  * 
  */
 export async function addRoomToFlight(flighthash: string, room: string): Promise<void>{
-	const { data, error } = await supabase
+	const { error } = await supabase
 		.from('rooms')
 		.insert([
 			{

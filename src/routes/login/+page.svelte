@@ -1,5 +1,5 @@
 <script lang="ts">
-	import supabase from '../../scripts/supabase.js';
+	import supabaseclient from '../../scripts/supabaseutil';
 	import { login } from './login';
 
 	let email = '';
@@ -18,7 +18,7 @@
 
 	async function logout() {
 		console.log('logout');
-		let data = await supabase.auth.signOut();
+		let data = await supabaseclient.auth.signOut();
 		usermail = '';
 		console.log(data);
 	}
