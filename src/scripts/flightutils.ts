@@ -3,7 +3,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import moment from 'moment';
 import { element } from 'svelte/internal';
-import type { Flight} from './interfaces';
+import type { IFlight} from './interfaces';
+import { flights } from './stores';
 
 const SUPABASE_URL = 'https://uzkphhitjjeooktrkyud.supabase.co';
 const supabase = createClient(
@@ -57,9 +58,9 @@ export async function fetchFlights( supabase: SupabaseClient,date: string, type:
  * 
  * 
  */
-export function converttimes(flight: Flight) {
+export function converttimes(flight: IFlight) {
 		//print the stack trace
-		console.trace();
+		
 		flight.cancelled = false;
 		flight.planned = moment(flight.planned).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
 		if (flight.estimated)
@@ -140,21 +141,17 @@ function getTimeSpan(date: string): { start: moment.Moment; end: moment.Moment; 
 	}
 }
 
-export function gettime(flightslist: Flight[] ) {
+export function gettime() {
 		const time = moment();
 
 		//if it's a new day, fetch new flights
 		if (time.hour() == 0 && time.minute() == 0 && time.second() == 0) {
-			flightslist = [];
-			fetchFlights(supabase, moment().format('YYYY-MM-DD'), 'departure').then((flights) => {
-				for (let i = 0; i < flights.length; i++) {
-					converttimes(flights[i]);
-					flightslist.push(flights[i]);
-				}
-			});
-
-		}
-
+			console.log('fetching new flights');
+			fetchFlights(supabase, moment().format('YYYY-MM-DD'), 'departure').then((data) => {
+				flights.set(data as IFlight[]);
+		});
+	}
+			
 		return time;
 	}
 

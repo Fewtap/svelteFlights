@@ -2,23 +2,31 @@
 	import moment from 'moment';
 	import supabase from '../scripts/supabase';
 	import { onMount } from 'svelte';
-	import type { Flight } from '../scripts/interfaces';
+	import type { IFlight } from '../scripts/interfaces';
 	import Card from '../components/card.svelte';
+	import { flights } from '../scripts/stores';
 	import { converttimes, gettime, fetchFlights } from '../scripts/flightutils';
 
-	let flightslist: Flight[] = [];
+	let flightslist: IFlight[] = [];
 	let currenttime = moment();
 
 	setInterval(() => {
-		currenttime = gettime(flightslist);
+		currenttime = gettime();
 	}, 1000);
 
+	flights.subscribe((value) => {
+		flightslist = value;
+	});
+
 	onMount(async () => {
-		flightslist = (await fetchFlights(
+		const templist = (await fetchFlights(
 			supabase,
-			moment().format('YYYY-MM-DD'),
+			currenttime.format('YYYY-MM-DD'),
 			'departure'
-		)) as Flight[];
+		)) as IFlight[];
+
+		flights.set(templist);
+
 		supabase
 			.channel('custom-all-channel')
 			.on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, (payload) => {
@@ -29,7 +37,7 @@
 
 	function updateflights(payload: any) {
 		console.log(payload);
-		let flight = payload.new as Flight;
+		let flight = payload.new as IFlight;
 		flight = converttimes(flight);
 
 		//if the flight is today and is a departure
@@ -43,7 +51,7 @@
 				flightslist.push(flight);
 			}
 
-			flightslist = flightslist;
+			flights.set(flightslist);
 		}
 	}
 </script>
