@@ -36,8 +36,8 @@ export interface IFlight {
     rute: string;
     type: string;
     busdeparture: string | null;
-    delayed: boolean;
-    cancelled: boolean;
+    delayed: boolean | null;
+    cancelled: boolean | null;
 }
 
 /**

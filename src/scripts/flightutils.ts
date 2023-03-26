@@ -24,7 +24,7 @@ const supabase = createClient(
  * const flights = await fetchFlights(new Date(), 'arrival');
  */
 export async function fetchFlights( supabase: SupabaseClient,date: string, type: string){
-
+	
 	const { start, end } = getTimeSpan(date);
 	
 
@@ -37,10 +37,16 @@ export async function fetchFlights( supabase: SupabaseClient,date: string, type:
 			.order('planned', { ascending: true });
 
 	if(error != null){
+		console.log(error);
 		return Promise.reject(error);
 	}
 	else{
-		if(data == null) return Promise.resolve([]);
+		
+		if(data.length == 0){
+			console.log("No data");
+			return Promise.resolve([]);
+		}
+		console.log("Fetch success, data length: " + data.length);
 		for (let i = 0; i < data.length; i++) {
 			
 			data[i] = converttimes(data[i] as IFlight);
@@ -60,8 +66,13 @@ export async function fetchFlights( supabase: SupabaseClient,date: string, type:
  */
 export function converttimes(flight: IFlight) {
 		//print the stack trace
+		try{
+			flight.cancelled = false;
+		}
+		catch(e: any){
+			console.log(e.stack);
+		}
 		
-		flight.cancelled = false;
 		flight.planned = moment(flight.planned).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
 		if (flight.estimated)
 			flight.estimated = moment(flight.estimated)
@@ -87,7 +98,13 @@ export function converttimes(flight: IFlight) {
 			}
 			flight.delayed = true;
 		} else if (flight.en == 'Cancelled') {
-			flight.cancelled = true;
+			try{
+				flight.cancelled = true;
+			}
+			catch(e: any){
+				console.log(e.stack);
+			}
+			
 		} else {
 			
 			flight.delayed = false;
@@ -145,8 +162,8 @@ export function gettime() {
 		const time = moment();
 
 		//if it's a new day, fetch new flights
-		if (time.hour() == 0 && time.minute() == 0 && time.second() == 0) {
-			console.log('fetching new flights');
+		if (time.hour() == 2 && time.minute() == 0 && time.second() == 0) {
+			flights.set([]);
 			fetchFlights(supabase, moment().format('YYYY-MM-DD'), 'departure').then((data) => {
 				flights.set(data as IFlight[]);
 		});

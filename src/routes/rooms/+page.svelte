@@ -47,7 +47,7 @@
 	onMount(async () => {
 		getroomswithoutrooms(currentDate);
 		await getflights();
-		selectedCard.set(flightslist[0].flighthash);
+		if (flightslist.length > 0) selectedCard.set(flightslist[0].flighthash);
 	});
 
 	function getroomswithoutrooms(date: string) {
@@ -74,13 +74,15 @@
 		flights.set(templist);
 	}
 
-	function changeDate(datechange: string) {
+	async function changeDate(datechange: string) {
 		if (datechange == 'next') {
 			currentDate = moment(currentDate).add(1, 'day').format('YYYY-MM-DD');
 		} else if (datechange == 'previous') {
 			currentDate = moment(currentDate).subtract(1, 'day').format('YYYY-MM-DD');
 		}
-		getflights();
+		await getflights();
+		if (flightslist.length > 0) selectedCard.set(flightslist[0].flighthash);
+		getroomswithoutrooms(currentDate);
 	}
 
 	const channel = supabaseutil
@@ -156,8 +158,7 @@
 			.from('rooms')
 			.insert(room)
 			.then((data) => {
-				if (room.flighthash != null) updatesingleFlight(room.flighthash);
-				else getroomswithoutrooms(currentDate);
+				console.log(data);
 			});
 	}
 
@@ -167,14 +168,24 @@
 			.select('*, rooms(*)')
 			.eq('flighthash', flighthash)
 			.then((data) => {
-				if (data.data == null) return;
-				let newflight = data.data[0] as IFlight;
-				newflight = converttimes(newflight);
-
-				const index = flightslist.findIndex((flight) => flight.flighthash == flighthash);
-				flightslist[index] = newflight;
-				flights.set(flightslist);
+				if (data.data != null) {
+					if (data.data.length > 0) {
+						let newflight = data.data[0] as IFlight;
+						const index = flightslist.findIndex((flight) => flight.flighthash == flighthash);
+						flightslist[index] = newflight;
+						flights.set(flightslist);
+					}
+				}
 			});
+	}
+
+	function downloadsheet() {
+		const { data } = supabaseutil.storage
+			.from('sheets')
+			.getPublicUrl(`${moment(currentDate).format('YYYY-MM-DD')}`, {
+				download: true
+			});
+		console.log(data.publicUrl);
 	}
 </script>
 
@@ -186,6 +197,7 @@
 			<h1>{type.toLocaleUpperCase()}</h1>
 			<button on:click={() => changeDate('next')}>Next Day</button>
 			<button on:click={changeType}>Change Type</button>
+			<button on:click={downloadsheet}>Download sheet</button>
 		</div>
 
 		<div class="inputcontainer">
@@ -325,5 +337,27 @@
 		flex-direction: row;
 		justify-content: center;
 		align-items: center;
+	}
+
+	.withoutflights {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		/*cannot be higher than 30vh*/
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.withflights {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		overflow-y: auto;
+		/*cannot be higher than 30vh*/
+		max-height: 300px;
 	}
 </style>

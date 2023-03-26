@@ -8,6 +8,7 @@
 
 	export let flight: IFlight;
 	let selected = false;
+	const route = document.location.pathname;
 
 	flights.subscribe((value) => {
 		console.log(value);
@@ -61,17 +62,16 @@
 		});
 	}
 
-	setInterval(() => {
-		if (moment(flight.busdeparture).isBefore(moment())) {
-			bushasdeparted = true;
-		}
-	}, 1000);
+	if (route == '/') {
+		setInterval(() => {
+			if (moment(flight.busdeparture).isBefore(moment())) {
+				console.log('bus has departed');
+				bushasdeparted = true;
+			}
+		}, 1000);
+	}
 
 	onMount(() => {
-		if (moment(flight.busdeparture).isBefore(moment())) {
-			bushasdeparted = true;
-		}
-
 		getamountofpeople();
 	});
 
@@ -90,8 +90,6 @@
 		if (value == flight.flighthash) selected = true;
 		else selected = false;
 	});
-
-	const route = document.location.pathname;
 
 	$: if (route == '/') {
 		toggle();
@@ -134,11 +132,13 @@
 	class:departed={bushasdeparted}
 >
 	<h2>{flight.rute}</h2>
-	{#key flight.rooms}
-		{#if amountOfPeople > 0}
-			<h3>Amount: {amountOfPeople}</h3>
-		{/if}
-	{/key}
+	{#if route == '/rooms'}
+		{#key flight.rooms}
+			{#if amountOfPeople > 0}
+				<h3>Amount: {amountOfPeople}</h3>
+			{/if}
+		{/key}
+	{/if}
 
 	<div class="seperator" />
 	{#if flight.type == 'departure'}
