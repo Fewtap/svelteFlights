@@ -64,7 +64,7 @@
 		/>
 		<h1>{currenttime.format('HH:mm:ss')}</h1>
 	</div>
-	<div class="container">
+	<div class="container" class:overflow={flightslist.length > 12}>
 		{#each flightslist as flight}
 			<Card {flight} />
 		{/each}
@@ -81,6 +81,14 @@
 		padding: 10px;
 		overflow-x: hidden;
 		justify-items: center;
+	}
+
+	.overflow {
+		grid-template-columns: repeat(4, 1fr);
+	}
+
+	:global(.overflow > *) {
+		font-size: 12px;
 	}
 
 	@media screen and (max-width: 1080px) {
@@ -104,6 +112,10 @@
 
 		.container {
 			grid-template-columns: repeat(4, 1fr);
+		}
+
+		.container > * {
+			font-size: 12px;
 		}
 	}
 </style>
