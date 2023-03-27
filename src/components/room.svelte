@@ -30,7 +30,8 @@
 		if (room.flighthash == null) {
 			let roomsleft = roomswithoutflightlist.filter((roominlist) => room.id != roominlist.id);
 			const { data, error } = await supabaseutil.from('rooms').delete().eq('id', room.id);
-
+			console.log(data);
+			console.log(error);
 			roomswithoutflight.set(roomsleft);
 			return;
 		} else {

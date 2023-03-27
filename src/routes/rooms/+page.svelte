@@ -157,8 +157,22 @@
 		supabaseutil
 			.from('rooms')
 			.insert(room)
+			.select('*')
 			.then((data) => {
-				console.log(data);
+				if (data.data != null) {
+					if (data.data.length > 0) {
+						let newroom = data.data[0] as IRoom;
+						if (hasflight) {
+							const index = selectedFlight.rooms.findIndex((room) => room.id == newroom.id);
+							selectedFlight.rooms[index] = newroom;
+							selectedFlight = selectedFlight;
+						} else {
+							const index = roomswithoutflightlist.findIndex((room) => room.id == undefined);
+							roomswithoutflightlist[index] = newroom;
+							roomswithoutflight.set(roomswithoutflightlist);
+						}
+					}
+				}
 			});
 	}
 
