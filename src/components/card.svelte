@@ -195,6 +195,7 @@
 	.card:hover {
 		/*change the mouse cursor to a pointer*/
 		cursor: pointer;
+		transform: translateY(-5px);
 	}
 
 	h5 {

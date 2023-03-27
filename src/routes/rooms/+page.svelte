@@ -197,9 +197,9 @@
 		const { data } = supabaseutil.storage
 			.from('sheets')
 			.getPublicUrl(`${moment(currentDate).format('YYYY-MM-DD')}`, {
-				download: true
+				download: false
 			});
-		console.log(data.publicUrl);
+		open(data.publicUrl);
 	}
 </script>
 
