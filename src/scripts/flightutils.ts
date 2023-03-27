@@ -73,13 +73,13 @@ export function converttimes(flight: IFlight) {
 			console.log(e.stack);
 		}
 		
-		flight.planned = moment(flight.planned).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
+		flight.planned = moment(flight.planned).local().format('YYYY-MM-DDTHH:mm:ss');
 		if (flight.estimated)
 			flight.estimated = moment(flight.estimated)
-				.subtract(3, 'hours')
+				.local()
 				.format('YYYY-MM-DDTHH:mm:ss');
 		if (flight.actual)
-			flight.actual = moment(flight.actual).subtract(3, 'hours').format('YYYY-MM-DDTHH:mm:ss');
+			flight.actual = moment(flight.actual).local().format('YYYY-MM-DDTHH:mm:ss');
 		flight.busdeparture = moment(flight.planned)
 			.subtract(90, 'minutes')
 			.format('YYYY-MM-DDTHH:mm:ss');
