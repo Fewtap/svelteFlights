@@ -138,33 +138,30 @@
 	{:else if flight.type == 'arrival'}
 		<h3>{$languageStore.origin}: {flight.departureairport}</h3>
 	{/if}
-	{#if !bushasdeparted}
-		<h3 in:fade={{ duration: 200 }}>
-			{$languageStore.planned}: {moment(flight.planned).format('HH:mm')}
-		</h3>
-		{#if flight.type == 'departure'}
-			<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
+
+	<h3 in:fade={{ duration: 200 }}>
+		{$languageStore.planned}: {moment(flight.planned).format('HH:mm')}
+	</h3>
+	{#if flight.type == 'departure'}
+		<h3>{$languageStore.busdeparture}: {moment(flight.busdeparture).format('HH:mm')}</h3>
+	{/if}
+	{#key flight.estimated}
+		{#if flight.estimated}
+			<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
 		{/if}
-		{#key flight.estimated}
-			{#if flight.estimated}
-				<h3>{$languageStore.estimated}: {moment(flight.estimated).format('HH:mm')}</h3>
-			{/if}
-		{/key}
-		{#if (flight.cancelled && $flightStatus) || (flight.delayed && $flightStatus)}
-			<div
-				class="badge"
-				class:delayed={flight.delayed}
-				class:cancelled={flight.cancelled}
-				class:overflowbadge={flightslist.length > 9}
-				transition:fade
-			>
-				{#key $flightStatus}
-					<h5>{$flightStatus}</h5>
-				{/key}
-			</div>
-		{/if}
-	{:else}
-		<h3>{$languageStore.departed}</h3>
+	{/key}
+	{#if (flight.cancelled && $flightStatus) || (flight.delayed && $flightStatus)}
+		<div
+			class="badge"
+			class:delayed={flight.delayed}
+			class:cancelled={flight.cancelled}
+			class:overflowbadge={flightslist.length > 9}
+			transition:fade
+		>
+			{#key $flightStatus}
+				<h5>{$flightStatus}</h5>
+			{/key}
+		</div>
 	{/if}
 </div>
 
