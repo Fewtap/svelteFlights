@@ -63,15 +63,6 @@
 		});
 	}
 
-	if (route == '/') {
-		setInterval(() => {
-			if (moment(flight.busdeparture).isBefore(moment())) {
-				console.log('bus has departed');
-				bushasdeparted = true;
-			}
-		}, 1000);
-	}
-
 	onMount(() => {
 		getamountofpeople();
 	});

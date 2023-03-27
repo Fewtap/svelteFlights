@@ -113,9 +113,5 @@
 		.container {
 			grid-template-columns: repeat(4, 1fr);
 		}
-
-		.container > * {
-			font-size: 12px;
-		}
 	}
 </style>
