@@ -9,9 +9,10 @@
 	export let flight: IFlight;
 	let selected = false;
 	const route = document.location.pathname;
+	let flightslist: IFlight[] = [];
 
 	flights.subscribe((value) => {
-		console.log(value);
+		flightslist = value;
 	});
 
 	$: {
@@ -163,6 +164,7 @@
 				class="badge"
 				class:delayed={flight.delayed}
 				class:cancelled={flight.cancelled}
+				class:overflowbadge={flightslist.length > 9}
 				transition:fade
 			>
 				{#key $flightStatus}
@@ -190,6 +192,14 @@
 		text-align: center;
 		transition: cubic-bezier(0.075, 0.82, 0.165, 1) 0.5s;
 		transform: scale(1);
+	}
+
+	.overflowbadge {
+		font-size: 1.5em !important;
+		width: fit-content !important;
+		height: fit-content !important;
+		padding: 5px !important;
+		right: 20px !important;
 	}
 
 	.card:hover {

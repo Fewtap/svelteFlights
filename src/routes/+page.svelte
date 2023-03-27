@@ -64,7 +64,7 @@
 		/>
 		<h1>{currenttime.format('HH:mm:ss')}</h1>
 	</div>
-	<div class="container" class:overflow={flightslist.length > 12}>
+	<div class="container" class:overflow={flightslist.length > 9}>
 		{#each flightslist as flight}
 			<Card {flight} />
 		{/each}
